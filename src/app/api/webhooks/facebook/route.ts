@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizeBurmese } from '@/lib/burmese-converter';
 import { processCustomerMessage } from '@/lib/gemini-agent';
-import { INITIAL_PRODUCTS, INITIAL_SHOP } from '@/lib/store';
+import { db } from '@/lib/db';
+import { sendFacebookMessage } from '@/lib/facebook';
 
 // Facebook Webhook Verification Challenge (GET)
 export async function GET(req: NextRequest) {
@@ -20,35 +21,59 @@ export async function GET(req: NextRequest) {
   return new Response('Forbidden', { status: 403 });
 }
 
-// Facebook Messenger Inbound Message Receiver (POST)
+// Facebook Messenger Inbound Message Receiver & Outbound Dispatcher (POST)
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
     if (body.object === 'page') {
       for (const entry of body.entry) {
+        const pageId = entry.id; // The Facebook Page that received the message
         const webhookEvent = entry.messaging?.[0];
+
         if (webhookEvent && webhookEvent.message && webhookEvent.message.text) {
-          const senderId = webhookEvent.sender.id;
+          const senderId = webhookEvent.sender.id; // Customer PSID
           const rawMessageText = webhookEvent.message.text;
 
-          // 1. Normalize Burmese text (Zawgyi -> Unicode)
+          // 1. Multi-Tenant Lookup: Match incoming Page ID to the owning shop
+          const match = await db.findShopByPageId(pageId);
+          const shop = match?.shop;
+          const channel = match?.channel;
+
+          if (!shop) {
+            console.warn(`[FB Webhook] No shop registered for Page ID ${pageId}`);
+            continue;
+          }
+
+          // 2. Fetch shop's specific products
+          const products = await db.getProducts(shop.id);
+
+          // 3. Normalize Burmese text (Zawgyi -> Unicode)
           const normalized = normalizeBurmese(rawMessageText);
+          console.log(`[FB Inbound for Shop "${shop.name}"] from ${senderId}: ${normalized}`);
 
-          console.log(`[FB Inbound from ${senderId}]: ${normalized}`);
-
-          // 2. Process with AI Agent
+          // 4. Run Burmese AI Agent
           const aiResponse = await processCustomerMessage(normalized, {
-            shop: INITIAL_SHOP,
-            products: INITIAL_PRODUCTS,
-            customerName: `FB Customer (${senderId.slice(-4)})`,
+            shop,
+            products,
+            customerName: `Customer (${senderId.slice(-4)})`,
             conversationHistory: [{ role: 'user', content: normalized }],
           });
 
-          console.log(`[AI Response to FB]: ${aiResponse.replyTextMm}`);
+          console.log(`[AI Response for Shop "${shop.name}"]: ${aiResponse.replyTextMm}`);
 
-          // In production: dispatch reply using Meta Graph API:
-          // POST https://graph.facebook.com/v21.0/me/messages?access_token=PAGE_ACCESS_TOKEN
+          // 5. Outbound Dispatch: Send message back to the customer on Facebook Messenger
+          const pageAccessToken = process.env.FB_PAGE_ACCESS_TOKEN || channel?.pageId;
+          if (pageAccessToken) {
+            const sendResult = await sendFacebookMessage(
+              senderId,
+              aiResponse.replyTextMm,
+              pageAccessToken
+            );
+            console.log(`[FB Outbound Result]:`, sendResult);
+          } else {
+            console.log(`[FB Outbound Skipped]: No FB_PAGE_ACCESS_TOKEN configured in environment.`);
+          }
         }
       }
 

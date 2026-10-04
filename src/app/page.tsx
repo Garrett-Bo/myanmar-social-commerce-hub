@@ -1,12 +1,7 @@
 'use client';
-
-import React, { useState } from 'react';
-import {
-  INITIAL_CONVERSATIONS,
-  INITIAL_MESSAGES,
-  INITIAL_PRODUCTS,
-  INITIAL_SHOP,
-} from '@/lib/store';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/auth-context';
+import { db } from '@/lib/db';
 import { Conversation, Message, Product } from '@/types';
 import { processCustomerMessage } from '@/lib/gemini-agent';
 import { normalizeBurmese } from '@/lib/burmese-converter';
@@ -29,13 +24,48 @@ import {
 import { FacebookIcon, TikTokIcon } from '@/components/icons';
 
 export default function UnifiedInboxPage() {
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [selectedConvId, setSelectedConvId] = useState<string>('conv-01');
-  const [messages, setMessages] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const { currentShop } = useAuth();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConvId, setSelectedConvId] = useState<string>('');
+  const [messages, setMessages] = useState<Record<string, Message[]>>({});
+  const [products, setProducts] = useState<Product[]>([]);
   const [inputText, setInputText] = useState('');
   const [filterPlatform, setFilterPlatform] = useState<'all' | 'facebook' | 'tiktok'>('all');
   const [isAiProcessing, setIsAiProcessing] = useState(false);
+
+  // Load tenant-scoped data when currentShop changes
+  useEffect(() => {
+    async function loadTenantData() {
+      const [convs, prods] = await Promise.all([
+        db.getConversations(currentShop.id),
+        db.getProducts(currentShop.id),
+      ]);
+      setConversations(convs);
+      setProducts(prods);
+
+      if (convs.length > 0) {
+        setSelectedConvId(convs[0].id);
+        const msgs = await db.getMessages(convs[0].id);
+        setMessages({ [convs[0].id]: msgs });
+      } else {
+        setSelectedConvId('');
+        setMessages({});
+      }
+    }
+    loadTenantData();
+  }, [currentShop.id]);
+
+  // Load messages when conversation selection changes
+  useEffect(() => {
+    if (!selectedConvId) return;
+    async function loadMessages() {
+      if (!messages[selectedConvId]) {
+        const msgs = await db.getMessages(selectedConvId);
+        setMessages((prev) => ({ ...prev, [selectedConvId]: msgs }));
+      }
+    }
+    loadMessages();
+  }, [selectedConvId]);
 
   // Simulator State
   const [simChannel, setSimChannel] = useState<'facebook' | 'tiktok'>('facebook');
@@ -96,7 +126,7 @@ export default function UnifiedInboxPage() {
     const convId = `conv-sim-${Date.now()}`;
     const newConv: Conversation = {
       id: convId,
-      shopId: INITIAL_SHOP.id,
+      shopId: currentShop.id,
       platform: simChannel,
       customerPlatformId: `${simChannel}_usr_${Math.floor(Math.random() * 8999 + 1000)}`,
       customerName: simCustomerName,
@@ -131,7 +161,7 @@ export default function UnifiedInboxPage() {
     // Run Burmese AI Agent
     setTimeout(async () => {
       const response = await processCustomerMessage(simMessage, {
-        shop: INITIAL_SHOP,
+        shop: currentShop,
         products,
         customerName: simCustomerName,
         conversationHistory: [{ role: 'user', content: simMessage }],
@@ -293,137 +323,151 @@ export default function UnifiedInboxPage() {
 
       {/* 2. CENTER: Live Conversation Chat Window */}
       <div className="flex-1 flex flex-col bg-white border-r border-slate-200 overflow-hidden">
-        {/* Chat Header */}
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
-          <div className="flex items-center space-x-3">
-            <img
-              src={activeConversation?.customerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'}
-              alt={activeConversation?.customerName}
-              className="w-10 h-10 rounded-full object-cover border border-slate-200"
-            />
-            <div>
-              <div className="flex items-center space-x-2">
-                <h3 className="font-bold text-slate-900 text-base">
-                  {activeConversation?.customerName}
-                </h3>
-                <span
-                  className={`px-2 py-0.5 text-xs font-semibold rounded-full text-white flex items-center space-x-1 ${
-                    activeConversation?.platform === 'facebook' ? 'bg-blue-600' : 'bg-black'
-                  }`}
-                >
-                  {activeConversation?.platform === 'facebook' ? 'Facebook' : 'TikTok Shop'}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 flex items-center space-x-2">
-                <span>ID: {activeConversation?.customerPlatformId}</span>
-                {activeConversation?.customerTownship && (
-                  <>
-                    <span>•</span>
-                    <span className="text-indigo-600 font-medium">
-                      Township: {activeConversation.customerTownship}
+        {activeConversation ? (
+          <>
+            {/* Chat Header */}
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center space-x-3">
+                <img
+                  src={activeConversation?.customerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'}
+                  alt={activeConversation?.customerName}
+                  className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                />
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="font-bold text-slate-900 text-base">
+                      {activeConversation?.customerName}
+                    </h3>
+                    <span
+                      className={`px-2 py-0.5 text-xs font-semibold rounded-full text-white flex items-center space-x-1 ${
+                        activeConversation?.platform === 'facebook' ? 'bg-blue-600' : 'bg-black'
+                      }`}
+                    >
+                      {activeConversation?.platform === 'facebook' ? 'Facebook' : 'TikTok Shop'}
                     </span>
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-
-          {/* AI vs Human Toggle Switch */}
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => toggleAiStatus(activeConversation.id)}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                activeConversation.aiStatus === 'auto'
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
-                  : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
-              }`}
-            >
-              {activeConversation.aiStatus === 'auto' ? (
-                <>
-                  <Bot className="w-4 h-4 text-emerald-600" />
-                  <span>AI Handling (Click to Takeover)</span>
-                </>
-              ) : (
-                <>
-                  <User className="w-4 h-4 text-amber-600" />
-                  <span>Manual Mode (Click for AI Auto)</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Message Log */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30">
-          {activeMessages.map((msg) => {
-            const isCustomer = msg.senderType === 'customer';
-            const isAi = msg.senderType === 'ai';
-
-            return (
-              <div
-                key={msg.id}
-                className={`flex flex-col ${isCustomer ? 'items-start' : 'items-end'}`}
-              >
-                <div className="flex items-center space-x-1.5 mb-1 text-[11px] text-slate-400">
-                  {isAi && <Sparkles className="w-3 h-3 text-emerald-500" />}
-                  <span>
-                    {isCustomer
-                      ? activeConversation.customerName
-                      : isAi
-                      ? 'Gemini Flash Sales AI'
-                      : 'Staff Agent'}
-                  </span>
-                  <span>•</span>
-                  <span>{msg.createdAt}</span>
-                </div>
-
-                <div
-                  className={`max-w-lg rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line shadow-xs ${
-                    isCustomer
-                      ? 'bg-white border border-slate-200 text-slate-800 rounded-tl-xs'
-                      : isAi
-                      ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-tr-xs shadow-indigo-100'
-                      : 'bg-slate-800 text-white rounded-tr-xs'
-                  }`}
-                >
-                  {msg.rawContent}
+                  </div>
+                  <p className="text-xs text-slate-500 flex items-center space-x-2">
+                    <span>ID: {activeConversation?.customerPlatformId}</span>
+                    {activeConversation?.customerTownship && (
+                      <>
+                        <span>•</span>
+                        <span className="text-indigo-600 font-medium">
+                          Township: {activeConversation.customerTownship}
+                        </span>
+                      </>
+                    )}
+                  </p>
                 </div>
               </div>
-            );
-          })}
 
-          {isAiProcessing && (
-            <div className="flex items-center space-x-2 text-xs text-indigo-600 bg-indigo-50 p-3 rounded-xl border border-indigo-100 animate-pulse">
-              <Sparkles className="w-4 h-4 text-indigo-600 animate-spin" />
-              <span>AI is checking live inventory and calculating delivery fee in Burmese...</span>
+              {/* AI vs Human Toggle Switch */}
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => toggleAiStatus(activeConversation.id)}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                    activeConversation?.aiStatus === 'auto'
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                      : 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+                  }`}
+                >
+                  {activeConversation?.aiStatus === 'auto' ? (
+                    <>
+                      <Bot className="w-4 h-4 text-emerald-600" />
+                      <span>AI Handling (Click to Takeover)</span>
+                    </>
+                  ) : (
+                    <>
+                      <User className="w-4 h-4 text-amber-600" />
+                      <span>Manual Mode (Click for AI Auto)</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* Chat Input Bar */}
-        <div className="p-3 border-t border-slate-200 bg-white">
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSendManualMessage()}
-              placeholder={
-                activeConversation.aiStatus === 'auto'
-                  ? 'Type to reply manually (AI is currently actively answering)...'
-                  : 'Type a message as staff agent...'
-              }
-              className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
-            />
-            <button
-              onClick={handleSendManualMessage}
-              className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center space-x-1.5"
-            >
-              <Send className="w-4 h-4" />
-              <span>Send</span>
-            </button>
+            {/* Message Log */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30">
+              {activeMessages.map((msg) => {
+                const isCustomer = msg.senderType === 'customer';
+                const isAi = msg.senderType === 'ai';
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col ${isCustomer ? 'items-start' : 'items-end'}`}
+                  >
+                    <div className="flex items-center space-x-1.5 mb-1 text-[11px] text-slate-400">
+                      {isAi && <Sparkles className="w-3 h-3 text-emerald-500" />}
+                      <span>
+                        {isCustomer
+                          ? activeConversation?.customerName
+                          : isAi
+                          ? 'Gemini Flash Sales AI'
+                          : 'Staff Agent'}
+                      </span>
+                      <span>•</span>
+                      <span>{msg.createdAt}</span>
+                    </div>
+
+                    <div
+                      className={`max-w-lg rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line shadow-xs ${
+                        isCustomer
+                          ? 'bg-white border border-slate-200 text-slate-800 rounded-tl-xs'
+                          : isAi
+                          ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-tr-xs shadow-indigo-100'
+                          : 'bg-slate-800 text-white rounded-tr-xs'
+                      }`}
+                    >
+                      {msg.rawContent}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {isAiProcessing && (
+                <div className="flex items-center space-x-2 text-xs text-indigo-600 bg-indigo-50 p-3 rounded-xl border border-indigo-100 animate-pulse">
+                  <Sparkles className="w-4 h-4 text-indigo-600 animate-spin" />
+                  <span>AI is checking live inventory and calculating delivery fee in Burmese...</span>
+                </div>
+              )}
+            </div>
+
+            {/* Chat Input Bar */}
+            <div className="p-3 border-t border-slate-200 bg-white">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendManualMessage()}
+                  placeholder={
+                    activeConversation?.aiStatus === 'auto'
+                      ? 'Type to reply manually (AI is currently actively answering)...'
+                      : 'Type a message as staff agent...'
+                  }
+                  className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
+                />
+                <button
+                  onClick={handleSendManualMessage}
+                  className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center space-x-1.5"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>Send</span>
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50/50">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
+              <MessageSquare className="w-8 h-8" />
+            </div>
+            <h3 className="font-bold text-slate-900 text-base mb-1">No Active Conversations</h3>
+            <p className="text-xs text-slate-500 max-w-sm mb-4">
+              This shop has no customer threads yet. Use the Live Inbound Simulator on the right to test Burmese AI replies, or connect a Facebook Page!
+            </p>
           </div>
-        </div>
+        )}
       </div>
 
       {/* 3. RIGHT SIDEBAR: Inbound Channel Simulator & Live Stock Quick Lookup */}

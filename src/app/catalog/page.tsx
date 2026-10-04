@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { INITIAL_PRODUCTS, INITIAL_SHOP } from '@/lib/store';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/auth-context';
+import { db } from '@/lib/db';
 import { Product } from '@/types';
 import { exportProductsToCsv, parseGoogleSheetCsv } from '@/lib/google-sheets';
 import {
@@ -19,7 +20,8 @@ import {
 } from 'lucide-react';
 
 export default function CatalogPage() {
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const { currentShop } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -33,6 +35,14 @@ export default function CatalogPage() {
   const [newStock, setNewStock] = useState('10');
   const [newImageUrl, setNewImageUrl] = useState('https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=400&h=400&fit=crop');
 
+  useEffect(() => {
+    async function loadProducts() {
+      const prods = await db.getProducts(currentShop.id);
+      setProducts(prods);
+    }
+    loadProducts();
+  }, [currentShop.id]);
+
   const handleSyncGoogleSheets = () => {
     setIsSyncing(true);
     setSyncSuccess(false);
@@ -44,13 +54,13 @@ export default function CatalogPage() {
     }, 1200);
   };
 
-  const handleAddProduct = (e: React.FormEvent) => {
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNameMm.trim()) return;
 
     const prod: Product = {
       id: `prod-${Date.now()}`,
-      shopId: INITIAL_SHOP.id,
+      shopId: currentShop.id,
       sku: newSku || `SKU-${Math.floor(Math.random() * 8999 + 1000)}`,
       nameMm: newNameMm,
       nameEn: newNameEn || newNameMm,
@@ -61,6 +71,7 @@ export default function CatalogPage() {
       isAvailable: parseInt(newStock, 10) > 0,
     };
 
+    await db.addProduct(prod);
     setProducts([prod, ...products]);
     setShowAddModal(false);
     // Reset form
@@ -68,7 +79,8 @@ export default function CatalogPage() {
     setNewNameEn('');
   };
 
-  const handleQuickStockUpdate = (id: string, delta: number) => {
+  const handleQuickStockUpdate = async (id: string, delta: number) => {
+    await db.updateProductStock(currentShop.id, id, delta);
     setProducts((prev) =>
       prev.map((p) => {
         if (p.id === id) {
@@ -149,7 +161,7 @@ export default function CatalogPage() {
               </span>
             </div>
             <a
-              href={`https://docs.google.com/spreadsheets/d/${INITIAL_SHOP.googleSheetId}`}
+              href={`https://docs.google.com/spreadsheets/d/${currentShop.googleSheetId || '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms'}`}
               target="_blank"
               rel="noreferrer"
               className="text-emerald-700 underline font-semibold flex items-center space-x-1"

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { INITIAL_CHANNELS, INITIAL_SHOP } from '@/lib/store';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/auth-context';
+import { db } from '@/lib/db';
 import { ChannelConnection, Shop } from '@/types';
 import {
   Settings,
@@ -18,15 +19,35 @@ import {
 import { FacebookIcon, TikTokIcon } from '@/components/icons';
 
 export default function SettingsPage() {
-  const [shop, setShop] = useState<Shop>(INITIAL_SHOP);
-  const [channels, setChannels] = useState<ChannelConnection[]>(INITIAL_CHANNELS);
+  const { currentShop, updateCurrentShop } = useAuth();
+  const [shop, setShop] = useState<Shop>(currentShop);
+  const [channels, setChannels] = useState<ChannelConnection[]>([]);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    setShop(currentShop);
+    async function loadChannels() {
+      const chs = await db.getChannels(currentShop.id);
+      setChannels(chs);
+    }
+    loadChannels();
+  }, [currentShop]);
 
   // Gemini API key state
   const [geminiKey, setGeminiKey] = useState('');
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    await updateCurrentShop({
+      name: shop.name,
+      ownerEmail: shop.ownerEmail,
+      kpayNumber: shop.kpayNumber,
+      kpayName: shop.kpayName,
+      waveNumber: shop.waveNumber,
+      waveName: shop.waveName,
+      telegramChatId: shop.telegramChatId,
+      telegramBotToken: shop.telegramBotToken,
+    });
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
   };

@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { INITIAL_ORDERS } from '@/lib/store';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/auth-context';
+import { db } from '@/lib/db';
 import { Order, OrderStatus } from '@/types';
 import {
   ShoppingBag,
@@ -17,16 +18,26 @@ import {
 } from 'lucide-react';
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
+  const { currentShop } = useAuth();
+  const [orders, setOrders] = useState<Order[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
   const [selectedSlipOrder, setSelectedSlipOrder] = useState<Order | null>(null);
+
+  useEffect(() => {
+    async function loadOrders() {
+      const ords = await db.getOrders(currentShop.id);
+      setOrders(ords);
+    }
+    loadOrders();
+  }, [currentShop.id]);
 
   const filteredOrders = orders.filter((o) => {
     if (statusFilter === 'all') return true;
     return o.status === statusFilter;
   });
 
-  const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
+  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
+    await db.updateOrderStatus(currentShop.id, orderId, newStatus);
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
     );
