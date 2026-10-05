@@ -1,6 +1,7 @@
-import { normalizeBurmese } from './burmese-converter';
-import { lookupTownshipDelivery, MYANMAR_DELIVERY_MATRIX } from './myanmar-townships';
+import { normalizeBurmese, convertBurmeseDigits, normalizeMyanmarPhone } from './burmese-converter';
+import { lookupTownshipDelivery, isRegionalPrepaidOnly, MYANMAR_DELIVERY_MATRIX } from './myanmar-townships';
 import { Product, Shop, Order } from '@/types';
+
 
 export interface AgentContext {
   shop: Shop;
@@ -29,13 +30,8 @@ export async function processCustomerMessage(
   const inputLower = normalizedInput.toLowerCase();
 
   // 1. Check Township & Delivery
-  let matchedDelivery = null;
-  for (const t of MYANMAR_DELIVERY_MATRIX) {
-    if (inputLower.includes(t.nameEn.toLowerCase()) || normalizedInput.includes(t.nameMm)) {
-      matchedDelivery = t;
-      break;
-    }
-  }
+  const matchedDelivery = lookupTownshipDelivery(normalizedInput);
+
 
   // 2. Check Product Matches
   const matchedProducts: Product[] = [];
@@ -68,8 +64,17 @@ export async function processCustomerMessage(
   const isOrderIntent = orderKeywords.some((k) => normalizedInput.includes(k) || inputLower.includes(k));
 
   // 4. Extract Myanmar Phone Number
-  const phoneMatch = normalizedInput.match(/(09\d{7,9}|\+959\d{7,9}|959\d{7,9})/);
-  const customerPhone = phoneMatch ? phoneMatch[0] : undefined;
+  const convertedForPhone = convertBurmeseDigits(normalizedInput);
+  const phoneMatch = convertedForPhone.match(/(?:\+?95\s*0?9|0095\s*9|09|9)[0-9\s.-]{7,15}/);
+  const customerPhone = phoneMatch ? normalizeMyanmarPhone(phoneMatch[0]) || undefined : undefined;
+
+  const orderDraft: Partial<Order> | undefined = (customerPhone || matchedDelivery || matchedProducts.length > 0) ? {
+    customerPhone,
+    township: matchedDelivery?.nameEn,
+    deliveryFeeMmk: matchedDelivery?.standardFeeMmk,
+    items: matchedProducts.map((p) => ({ productId: p.id, name: p.nameMm, quantity: 1, priceMmk: p.priceMmk })),
+  } : undefined;
+
 
   // 5. If Google Gemini API Key is available, invoke Gemini Flash
   const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
@@ -138,6 +143,7 @@ Instructions:
         deliveryFeeMmk: matchedDelivery?.standardFeeMmk,
         isOrderIntent,
         detectedItems: matchedProducts.map((p) => ({ productId: p.id, quantity: 1 })),
+        orderDraft,
       };
     } catch (err) {
       console.warn('Gemini API call fallback to local rule-engine:', err);
@@ -159,10 +165,11 @@ Instructions:
   }
 
   if (matchedDelivery) {
+    const isPrepaid = isRegionalPrepaidOnly(matchedDelivery.nameEn) || !matchedDelivery.codAvailable;
     reply += `📍 **${matchedDelivery.nameMm} (${matchedDelivery.nameEn}) မြို့နယ် ပို့ဆောင်ခ**\n`;
     reply += `• ပို့ဆောင်ခ: ${matchedDelivery.standardFeeMmk.toLocaleString()} ကျပ်\n`;
     reply += `• ကြာချိန်: ${matchedDelivery.estDays}\n`;
-    reply += `• ငွေချေစနစ်: ${matchedDelivery.codAvailable ? 'အိမ်အရောက်ငွေချေ (COD) ရရှိပါသည်' : 'KPay/WavePay ကြိုလွှဲစနစ်သာ ရရှိပါသည်'}\n\n`;
+    reply += `• ငွေချေစနစ်: ${isPrepaid ? 'KPay/WavePay ကြိုလွှဲစနစ်သာ ရရှိပါသည် (Prepaid Only)' : 'အိမ်အရောက်ငွေချေ (COD) ရရှိပါသည်'}\n\n`;
   }
 
   if (isOrderIntent) {
@@ -182,5 +189,6 @@ Instructions:
     deliveryFeeMmk: matchedDelivery?.standardFeeMmk,
     isOrderIntent,
     detectedItems: matchedProducts.map((p) => ({ productId: p.id, quantity: 1 })),
+    orderDraft,
   };
 }

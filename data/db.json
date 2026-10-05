@@ -1,0 +1,237 @@
+{
+  "shops": [
+    {
+      "id": "shop-yangon-01",
+      "name": "Aung Thukha Beauty & Fashion Store (ရန်ကုန်)",
+      "ownerEmail": "aungthukha.shop@gmail.com",
+      "telegramChatId": "@aungthukha_orders_bot",
+      "telegramBotToken": "789123456:AAFd9s8a7df98asd7f",
+      "googleSheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",
+      "kpayNumber": "09798765432",
+      "kpayName": "Daw Thandar Aung",
+      "waveNumber": "09798765432",
+      "waveName": "Daw Thandar Aung"
+    },
+    {
+      "id": "shop-mdy-02",
+      "name": "Mandalay Trendy Closet (မန္တလေး)",
+      "ownerEmail": "mandalay.closet@gmail.com",
+      "telegramChatId": "@mdy_closet_bot",
+      "telegramBotToken": "",
+      "googleSheetId": "",
+      "kpayNumber": "09451122334",
+      "kpayName": "Ko Ye Yint Aung",
+      "waveNumber": "09451122334",
+      "waveName": "Ko Ye Yint Aung"
+    },
+    {
+      "id": "shop-npt-03",
+      "name": "Naypyitaw Digital Store (နေပြည်တော်)",
+      "ownerEmail": "naypyitaw.tech@gmail.com",
+      "telegramChatId": "",
+      "telegramBotToken": "",
+      "googleSheetId": "",
+      "kpayNumber": "09250099887",
+      "kpayName": "Daw May Thu",
+      "waveNumber": "09250099887",
+      "waveName": "Daw May Thu"
+    }
+  ],
+  "products": [
+    {
+      "id": "prod-01",
+      "shopId": "shop-yangon-01",
+      "sku": "SKIN-SERUM-01",
+      "nameMm": "Niacinamide Whitening Serum (30ml)",
+      "nameEn": "Glow Niacinamide Serum 10%",
+      "category": "Skincare",
+      "priceMmk": 28000,
+      "stockQuantity": 15,
+      "imageUrl": "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=400&h=400&fit=crop",
+      "isAvailable": true,
+      "variants": [
+        "30ml standard bottle"
+      ]
+    },
+    {
+      "id": "prod-02",
+      "shopId": "shop-yangon-01",
+      "sku": "LIP-VELVET-02",
+      "nameMm": "Matte Velvet Lip Tint (မိတ်ကပ်နှုတ်ခမ်းနီ)",
+      "nameEn": "Soft Velvet Matte Lip Tint",
+      "category": "Cosmetics",
+      "priceMmk": 14500,
+      "stockQuantity": 42,
+      "imageUrl": "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=400&h=400&fit=crop",
+      "isAvailable": true,
+      "variants": [
+        "#01 Cherry Red",
+        "#02 Peach Coral",
+        "#03 Rosy Nude"
+      ]
+    },
+    {
+      "id": "prod-03",
+      "shopId": "shop-yangon-01",
+      "sku": "BAG-CROSS-03",
+      "nameMm": "Vintage Leather Crossbody Bag (ကိုရီးယားစတိုင်)",
+      "nameEn": "Korean Style Vintage Shoulder Bag",
+      "category": "Bags & Accessories",
+      "priceMmk": 35000,
+      "stockQuantity": 4,
+      "imageUrl": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400&h=400&fit=crop",
+      "isAvailable": true,
+      "variants": [
+        "Classic Brown",
+        "Midnight Black"
+      ]
+    },
+    {
+      "id": "prod-04",
+      "shopId": "shop-yangon-01",
+      "sku": "SUN-SCREEN-04",
+      "nameMm": "Aqua Sunscreen SPF50+ PA++++ (50ml)",
+      "nameEn": "UV Aqua Light Daily Sunscreen",
+      "category": "Skincare",
+      "priceMmk": 22000,
+      "stockQuantity": 0,
+      "imageUrl": "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400&h=400&fit=crop",
+      "isAvailable": false,
+      "variants": [
+        "50ml Tube"
+      ]
+    },
+    {
+      "id": "prod-05",
+      "shopId": "shop-yangon-01",
+      "sku": "DRESS-FLORAL-05",
+      "nameMm": "French Floral Vintage Dress (ပန်းပွင့်ဂါဝန်)",
+      "nameEn": "Summer French Floral Midi Dress",
+      "category": "Fashion",
+      "priceMmk": 38000,
+      "stockQuantity": 8,
+      "imageUrl": "https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=400&h=400&fit=crop",
+      "isAvailable": true,
+      "variants": [
+        "Size S",
+        "Size M",
+        "Size L"
+      ]
+    },
+    {
+      "id": "prod-mdy-01",
+      "shopId": "shop-mdy-02",
+      "sku": "MDY-SILK-01",
+      "nameMm": "မန္တလေး ချည်ပိုးထည် ပုဆိုး/လုံချည်",
+      "nameEn": "Traditional Mandalay Silk Longyi",
+      "category": "Traditional Fashion",
+      "priceMmk": 45000,
+      "stockQuantity": 20,
+      "imageUrl": "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=400&h=400&fit=crop",
+      "isAvailable": true
+    },
+    {
+      "id": "prod-mdy-02",
+      "shopId": "shop-mdy-02",
+      "sku": "MDY-SHIRT-02",
+      "nameMm": "အဖြူရောင် ချည်သား ကော်လံရှပ်",
+      "nameEn": "White Cotton Casual Shirt",
+      "category": "Men Fashion",
+      "priceMmk": 32000,
+      "stockQuantity": 12,
+      "imageUrl": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=400&h=400&fit=crop",
+      "isAvailable": true
+    }
+  ],
+  "channels": [
+    {
+      "id": "ch-fb-01",
+      "shopId": "shop-yangon-01",
+      "platform": "facebook",
+      "accountName": "Aung Thukha Fashion - FB Page",
+      "pageId": "109283746501928",
+      "accessToken": "EAA_mock_fb_access_token_yangon_01",
+      "webhookSecret": "whsec_mock_fb_01",
+      "isActive": true,
+      "avatarUrl": "https://images.unsplash.com/photo-1544717305-2782549b5136?w=100&h=100&fit=crop&crop=faces"
+    },
+    {
+      "id": "ch-tt-01",
+      "shopId": "shop-yangon-01",
+      "platform": "tiktok",
+      "accountName": "@aungthukha_trend",
+      "pageId": "tt_shop_8291029",
+      "accessToken": "tt_mock_access_token_yangon_01",
+      "webhookSecret": "whsec_mock_tt_01",
+      "isActive": true,
+      "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"
+    },
+    {
+      "id": "ch-fb-mdy-01",
+      "shopId": "shop-mdy-02",
+      "platform": "facebook",
+      "accountName": "Mandalay Closet FB Page",
+      "pageId": "209384756102938",
+      "accessToken": "EAAX_MOCK_TOKEN_MDY",
+      "webhookSecret": "whsec_mock_mdy_01",
+      "isActive": true
+    }
+  ],
+  "orders": [
+    {
+      "id": "ord-9021",
+      "shopId": "shop-yangon-01",
+      "platform": "tiktok",
+      "customerPlatformId": "tt_user_4481",
+      "customerName": "Ko Kyaw Swar Lin",
+      "customerPhone": "09791234567",
+      "township": "Tamwe",
+      "fullAddress": "No. 45, Kyaikkasan Road, Tamwe Township, Yangon",
+      "items": [
+        {
+          "productId": "prod-02",
+          "name": "Matte Velvet Lip Tint (#01 Cherry Red)",
+          "quantity": 1,
+          "priceMmk": 14500
+        },
+        {
+          "productId": "prod-03",
+          "name": "Vintage Leather Crossbody Bag (Brown)",
+          "quantity": 1,
+          "priceMmk": 35000
+        }
+      ],
+      "subtotalMmk": 49500,
+      "deliveryFeeMmk": 2500,
+      "totalMmk": 52000,
+      "paymentMethod": "kpay",
+      "paymentSlipUrl": "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400&h=600&fit=crop",
+      "status": "pending_approval",
+      "createdAt": "2026-10-04 12:30 PM"
+    },
+    {
+      "id": "ord-9018",
+      "shopId": "shop-yangon-01",
+      "platform": "facebook",
+      "customerPlatformId": "fb_user_9921",
+      "customerName": "Ma Sandar",
+      "customerPhone": "09450011223",
+      "township": "Sanchaung",
+      "fullAddress": "Shin Saw Pu Road, Sanchaung, Yangon",
+      "items": [
+        {
+          "productId": "prod-01",
+          "name": "Niacinamide Whitening Serum",
+          "quantity": 2,
+          "priceMmk": 28000
+        }
+      ],
+      "subtotalMmk": 56000,
+      "deliveryFeeMmk": 2500,
+      "totalMmk": 58500,
+      "paymentMethod": "cod",
+      "status": "confirmed",
+      "createdAt": "2026-10-04 10:15 AM"
+    }
+  ]
+}

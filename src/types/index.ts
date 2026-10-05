@@ -27,6 +27,8 @@ export interface ChannelConnection {
   platform: PlatformType;
   accountName: string;
   pageId: string;
+  accessToken: string;
+  webhookSecret?: string;
   isActive: boolean;
   avatarUrl?: string;
 }
@@ -45,16 +47,6 @@ export interface Product {
   variants?: string[]; // e.g. ['Red - M', 'Black - L']
 }
 
-export interface Message {
-  id: string;
-  conversationId: string;
-  senderType: SenderType;
-  rawContent: string;
-  normalizedContent: string;
-  mediaUrl?: string;
-  createdAt: string;
-}
-
 export interface OrderItem {
   productId: string;
   name: string;
@@ -65,7 +57,8 @@ export interface OrderItem {
 export interface Order {
   id: string;
   shopId: string;
-  conversationId: string;
+  platform: PlatformType;
+  customerPlatformId: string; // PSID or TikTok User ID (Stateless chat reference)
   customerName: string;
   customerPhone: string;
   township: string;
@@ -77,6 +70,23 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentSlipUrl?: string;
   status: OrderStatus;
+  createdAt: string;
+}
+
+/**
+ * EPHEMERAL CHANNEL TYPES (Zero-Chat Storage Architecture)
+ * The types below represent live conversation threads and message payloads fetched
+ * on-demand from Facebook Graph API / TikTok API or processed in-memory.
+ * STRICT INVARIANT: These are NOT database entities and must NEVER be persisted in the DB.
+ */
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderType: SenderType;
+  rawContent: string;
+  normalizedContent: string;
+  mediaUrl?: string;
   createdAt: string;
 }
 
@@ -94,3 +104,23 @@ export interface Conversation {
   customerPhone?: string;
   customerTownship?: string;
 }
+
+/**
+ * Logistics & Delivery Information Type (Myanmar Townships Matrix)
+ */
+export interface TownshipDeliveryInfo {
+  nameMm: string;
+  nameEn: string;
+  region: 'Yangon' | 'Mandalay' | 'Naypyitaw' | 'State/Region';
+  standardFeeMmk: number;
+  codAvailable: boolean;
+  estDays: string;
+  notes?: string;
+  // Backward compatibility & PROJECT.md contract aliases
+  townshipMm?: string;
+  townshipEn?: string;
+  feeMmk?: number;
+  isCodAvailable?: boolean;
+  estimatedDays?: string;
+}
+

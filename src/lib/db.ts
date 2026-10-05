@@ -1,5 +1,5 @@
-import { Product, Conversation, Message, Order, ChannelConnection, Shop, OrderStatus } from '@/types';
-import { INITIAL_SHOP, INITIAL_PRODUCTS, INITIAL_CONVERSATIONS, INITIAL_MESSAGES, INITIAL_ORDERS, INITIAL_CHANNELS } from './store';
+import { Product, Order, ChannelConnection, Shop, OrderStatus, PlatformType } from '@/types';
+import { INITIAL_SHOP, INITIAL_PRODUCTS, INITIAL_ORDERS, INITIAL_CHANNELS } from './store';
 
 // Additional sample tenant shops for multi-tenant simulation
 export const MOCK_SHOPS: Shop[] = [
@@ -57,88 +57,230 @@ export const MOCK_PRODUCTS_MDY: Product[] = [
   },
 ];
 
-// In-Memory state store keyed by shopId
-class MultiTenantDB {
+export const MOCK_CHANNELS_MDY: ChannelConnection[] = [
+  {
+    id: 'ch-fb-mdy-01',
+    shopId: 'shop-mdy-02',
+    platform: 'facebook',
+    accountName: 'Mandalay Closet FB Page',
+    pageId: '209384756102938',
+    accessToken: 'EAAX_MOCK_TOKEN_MDY',
+    webhookSecret: 'whsec_mock_mdy_01',
+    isActive: true,
+  },
+];
+
+export interface StoredDatabase {
+  shops: Shop[];
+  products: Product[];
+  channels: ChannelConnection[];
+  orders: Order[];
+}
+
+function getNodeFs() {
+  if (typeof window !== 'undefined') return null;
+  try {
+    const fs = eval('require')('fs');
+    const path = eval('require')('path');
+    return { fs, path };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * MultiTenantDB: Persistent Multi-Tenant Database Store
+ * ZERO CHAT STORAGE GUARANTEE: Exactly 4 entity types (shops, products, channels, orders).
+ * Zero conversations or messages are ever stored in the database.
+ */
+export class MultiTenantDB {
   private shops: Map<string, Shop> = new Map();
   private products: Map<string, Product[]> = new Map();
-  private conversations: Map<string, Conversation[]> = new Map();
-  private messages: Map<string, Message[]> = new Map();
-  private orders: Map<string, Order[]> = new Map();
   private channels: Map<string, ChannelConnection[]> = new Map();
+  private orders: Map<string, Order[]> = new Map();
+  private filePath: string;
 
-  constructor() {
-    this.init();
+  constructor(customPath?: string) {
+    const nodeFs = getNodeFs();
+    if (nodeFs) {
+      this.filePath =
+        customPath ||
+        process.env.DB_FILE_PATH ||
+        nodeFs.path.join(process.cwd(), 'data', 'db.json');
+    } else {
+      this.filePath = 'db.json';
+    }
+    this.loadData();
   }
 
-  private init() {
-    // Seed Shop 1 (Yangon)
-    this.shops.set(INITIAL_SHOP.id, INITIAL_SHOP);
+  private initSeed(): void {
+    this.shops.clear();
+    this.products.clear();
+    this.channels.clear();
+    this.orders.clear();
+
+    // 1. Seed Shop 1 (Yangon)
+    this.shops.set(INITIAL_SHOP.id, { ...INITIAL_SHOP });
     this.products.set(INITIAL_SHOP.id, [...INITIAL_PRODUCTS]);
-    this.conversations.set(INITIAL_SHOP.id, [...INITIAL_CONVERSATIONS]);
-    this.orders.set(INITIAL_SHOP.id, [...INITIAL_ORDERS]);
     this.channels.set(INITIAL_SHOP.id, [...INITIAL_CHANNELS]);
+    this.orders.set(INITIAL_SHOP.id, [...INITIAL_ORDERS]);
 
-    Object.entries(INITIAL_MESSAGES).forEach(([convId, msgs]) => {
-      this.messages.set(convId, [...msgs]);
-    });
-
-    // Seed Shop 2 (Mandalay)
+    // 2. Seed Shop 2 (Mandalay)
     const mdyShop = MOCK_SHOPS[1];
-    this.shops.set(mdyShop.id, mdyShop);
+    this.shops.set(mdyShop.id, { ...mdyShop });
     this.products.set(mdyShop.id, [...MOCK_PRODUCTS_MDY]);
-    this.conversations.set(mdyShop.id, [
-      {
-        id: 'conv-mdy-01',
-        shopId: mdyShop.id,
-        platform: 'facebook',
-        customerPlatformId: 'fb_usr_mdy_01',
-        customerName: 'Ko Zaw Min Tun',
-        customerAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop',
-        aiStatus: 'auto',
-        lastMessage: 'မန္တလေးချည်ထည် ပုဆိုးအရောင်စုံရှိလားဗျာ? ချမ်းအေးသာစံကို ပို့ပေးပါ',
-        lastMessageAt: '10:30 AM',
-        unreadCount: 1,
-        customerTownship: 'Chanayethazan',
-      },
-    ]);
-    this.messages.set('conv-mdy-01', [
-      {
-        id: 'msg-mdy-101',
-        conversationId: 'conv-mdy-01',
-        senderType: 'customer',
-        rawContent: 'မန္တလေးချည်ထည် ပုဆိုးအရောင်စုံရှိလားဗျာ? ချမ်းအေးသာစံကို ပို့ပေးပါ',
-        normalizedContent: 'မန္တလေးချည်ထည် ပုဆိုးအရောင်စုံရှိလားဗျာ? ချမ်းအေးသာစံကို ပို့ပေးပါ',
-        createdAt: '10:30 AM',
-      },
-    ]);
+    this.channels.set(mdyShop.id, [...MOCK_CHANNELS_MDY]);
     this.orders.set(mdyShop.id, []);
-    this.channels.set(mdyShop.id, [
-      {
-        id: 'ch-fb-mdy-01',
-        shopId: mdyShop.id,
-        platform: 'facebook',
-        accountName: 'Mandalay Closet FB Page',
-        pageId: '209384756102938',
-        isActive: true,
-      },
-    ]);
 
-    // Seed Shop 3 (Naypyitaw)
+    // 3. Seed Shop 3 (Naypyitaw)
     const nptShop = MOCK_SHOPS[2];
-    this.shops.set(nptShop.id, nptShop);
+    this.shops.set(nptShop.id, { ...nptShop });
     this.products.set(nptShop.id, []);
-    this.conversations.set(nptShop.id, []);
-    this.orders.set(nptShop.id, []);
     this.channels.set(nptShop.id, []);
+    this.orders.set(nptShop.id, []);
   }
 
-  // --- Shop Methods ---
-  async getShops(): Promise<Shop[]> {
-    return Array.from(this.shops.values());
+  public reload(): void {
+    this.loadData();
+  }
+
+  private loadData(): void {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('shweshop_db');
+        if (stored) {
+          this.applyParsedData(JSON.parse(stored));
+          return;
+        }
+      } catch {}
+      this.initSeed();
+      this.persistData();
+      return;
+    }
+
+    const nodeFs = getNodeFs();
+    if (nodeFs) {
+      if (nodeFs.fs.existsSync(this.filePath)) {
+        try {
+          const content = nodeFs.fs.readFileSync(this.filePath, 'utf-8');
+          const parsed: StoredDatabase = JSON.parse(content);
+          this.applyParsedData(parsed);
+          return;
+        } catch (e) {
+          console.warn('[MultiTenantDB] Failed to parse db.json, re-seeding:', e);
+        }
+      }
+      this.initSeed();
+      this.persistData();
+    }
+  }
+
+  private applyParsedData(data: StoredDatabase): void {
+    this.shops.clear();
+    this.products.clear();
+    this.channels.clear();
+    this.orders.clear();
+
+    for (const shop of data.shops || []) {
+      this.shops.set(shop.id, shop);
+      this.products.set(shop.id, []);
+      this.channels.set(shop.id, []);
+      this.orders.set(shop.id, []);
+    }
+
+    for (const prod of data.products || []) {
+      const list = this.products.get(prod.shopId) || [];
+      list.push(prod);
+      this.products.set(prod.shopId, list);
+    }
+
+    for (const ch of data.channels || []) {
+      const list = this.channels.get(ch.shopId) || [];
+      list.push(ch);
+      this.channels.set(ch.shopId, list);
+    }
+
+    for (const ord of data.orders || []) {
+      const list = this.orders.get(ord.shopId) || [];
+      list.push(ord);
+      this.orders.set(ord.shopId, list);
+    }
+  }
+
+  public exportData(): StoredDatabase {
+    const shops = Array.from(this.shops.values());
+    const products: Product[] = [];
+    for (const pList of this.products.values()) products.push(...pList);
+    const channels: ChannelConnection[] = [];
+    for (const cList of this.channels.values()) channels.push(...cList);
+    const orders: Order[] = [];
+    for (const oList of this.orders.values()) orders.push(...oList);
+
+    return { shops, products, channels, orders };
+  }
+
+  private persistData(): void {
+    const payload = this.exportData();
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('shweshop_db', JSON.stringify(payload));
+      } catch {}
+      return;
+    }
+
+    const nodeFs = getNodeFs();
+    if (nodeFs) {
+      try {
+        const dir = nodeFs.path.dirname(this.filePath);
+        if (!nodeFs.fs.existsSync(dir)) {
+          nodeFs.fs.mkdirSync(dir, { recursive: true });
+        }
+        const jsonContent = JSON.stringify(payload, null, 2);
+        const tempPath = `${this.filePath}.tmp.${Date.now()}`;
+        try {
+          nodeFs.fs.writeFileSync(tempPath, jsonContent, 'utf-8');
+          nodeFs.fs.renameSync(tempPath, this.filePath);
+        } catch {
+          // Windows NTFS lock fallback: direct writeSync
+          nodeFs.fs.writeFileSync(this.filePath, jsonContent, 'utf-8');
+          try {
+            nodeFs.fs.unlinkSync(tempPath);
+          } catch {}
+        }
+      } catch (err) {
+        console.error('[MultiTenantDB] Disk write failed:', err);
+      }
+    }
+  }
+
+  // ============================================================================
+  // SHOP OPERATIONS (Canonical contracts & aliases)
+  // ============================================================================
+
+  async getShop(shopId: string): Promise<Shop | null> {
+    return this.shops.get(shopId) || null;
   }
 
   async getShopById(id: string): Promise<Shop | null> {
-    return this.shops.get(id) || null;
+    return this.getShop(id);
+  }
+
+  async listShops(): Promise<Shop[]> {
+    return Array.from(this.shops.values());
+  }
+
+  async getShops(): Promise<Shop[]> {
+    return this.listShops();
+  }
+
+  async saveShop(shop: Shop): Promise<Shop> {
+    this.shops.set(shop.id, { ...shop });
+    if (!this.products.has(shop.id)) this.products.set(shop.id, []);
+    if (!this.channels.has(shop.id)) this.channels.set(shop.id, []);
+    if (!this.orders.has(shop.id)) this.orders.set(shop.id, []);
+    this.persistData();
+    return shop;
   }
 
   async createShop(data: Partial<Shop>): Promise<Shop> {
@@ -155,110 +297,183 @@ class MultiTenantDB {
       waveNumber: data.waveNumber || '',
       waveName: data.waveName || '',
     };
-    this.shops.set(id, newShop);
-    this.products.set(id, []);
-    this.conversations.set(id, []);
-    this.orders.set(id, []);
-    this.channels.set(id, []);
-    return newShop;
+    return this.saveShop(newShop);
   }
 
   async updateShop(id: string, updates: Partial<Shop>): Promise<Shop | null> {
     const current = this.shops.get(id);
     if (!current) return null;
     const updated = { ...current, ...updates };
-    this.shops.set(id, updated);
+    await this.saveShop(updated);
     return updated;
   }
 
-  // --- Tenant-Scoped Products ---
+  // ============================================================================
+  // PRODUCT OPERATIONS (Canonical contracts & aliases)
+  // ============================================================================
+
   async getProducts(shopId: string): Promise<Product[]> {
-    return this.products.get(shopId) || [];
+    return [...(this.products.get(shopId) || [])];
+  }
+
+  async saveProduct(
+    shopId: string,
+    product: Omit<Product, 'shopId'> & { shopId?: string }
+  ): Promise<Product> {
+    const item: Product = { ...product, shopId };
+    const list = this.products.get(shopId) || [];
+    const idx = list.findIndex((p) => p.id === item.id);
+    if (idx >= 0) {
+      list[idx] = item;
+    } else {
+      list.unshift(item);
+    }
+    this.products.set(shopId, list);
+    this.persistData();
+    return item;
   }
 
   async addProduct(product: Product): Promise<Product> {
-    const current = this.products.get(product.shopId) || [];
-    this.products.set(product.shopId, [product, ...current]);
-    return product;
+    return this.saveProduct(product.shopId, product);
   }
 
-  async updateProductStock(shopId: string, productId: string, delta: number): Promise<void> {
-    const prods = this.products.get(shopId) || [];
+  async updateProductStock(shopId: string, productId: string, delta: number): Promise<Product | null> {
+    const list = this.products.get(shopId) || [];
+    let updatedProduct: Product | null = null;
     this.products.set(
       shopId,
-      prods.map((p) => {
+      list.map((p) => {
         if (p.id === productId) {
           const newQty = Math.max(0, p.stockQuantity + delta);
-          return { ...p, stockQuantity: newQty, isAvailable: newQty > 0 };
+          updatedProduct = { ...p, stockQuantity: newQty, isAvailable: newQty > 0 };
+          return updatedProduct;
         }
         return p;
       })
     );
+    if (updatedProduct) {
+      this.persistData();
+    }
+    return updatedProduct;
   }
 
-  // --- Tenant-Scoped Conversations ---
-  async getConversations(shopId: string): Promise<Conversation[]> {
-    return this.conversations.get(shopId) || [];
-  }
+  // ============================================================================
+  // ORDER OPERATIONS (Canonical contracts & aliases)
+  // ============================================================================
 
-  async addConversation(conv: Conversation): Promise<void> {
-    const current = this.conversations.get(conv.shopId) || [];
-    this.conversations.set(conv.shopId, [conv, ...current]);
-  }
-
-  async updateConversation(shopId: string, convId: string, updates: Partial<Conversation>): Promise<void> {
-    const current = this.conversations.get(shopId) || [];
-    this.conversations.set(
-      shopId,
-      current.map((c) => (c.id === convId ? { ...c, ...updates } : c))
-    );
-  }
-
-  // --- Messages ---
-  async getMessages(conversationId: string): Promise<Message[]> {
-    return this.messages.get(conversationId) || [];
-  }
-
-  async addMessage(msg: Message): Promise<void> {
-    const current = this.messages.get(msg.conversationId) || [];
-    this.messages.set(msg.conversationId, [...current, msg]);
-  }
-
-  // --- Tenant-Scoped Orders ---
   async getOrders(shopId: string): Promise<Order[]> {
-    return this.orders.get(shopId) || [];
+    return [...(this.orders.get(shopId) || [])];
   }
 
-  async addOrder(order: Order): Promise<Order> {
-    const current = this.orders.get(order.shopId) || [];
-    this.orders.set(order.shopId, [order, ...current]);
+  async createOrder(
+    shopId: string,
+    orderData: Omit<Order, 'id' | 'createdAt' | 'shopId'> & { shopId?: string }
+  ): Promise<Order> {
+    const id = `ord-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const createdAt = new Date().toISOString();
+    const order: Order = { ...orderData, id, shopId, createdAt };
+    const list = this.orders.get(shopId) || [];
+    list.unshift(order);
+    this.orders.set(shopId, list);
+    this.persistData();
     return order;
   }
 
-  async updateOrderStatus(shopId: string, orderId: string, status: OrderStatus): Promise<void> {
-    const current = this.orders.get(shopId) || [];
+  async addOrder(order: Order): Promise<Order> {
+    const list = this.orders.get(order.shopId) || [];
+    const idx = list.findIndex((o) => o.id === order.id);
+    if (idx >= 0) {
+      list[idx] = order;
+    } else {
+      list.unshift(order);
+    }
+    this.orders.set(order.shopId, list);
+    this.persistData();
+    return order;
+  }
+
+  async updateOrderStatus(shopId: string, orderId: string, status: OrderStatus): Promise<Order | null> {
+    const list = this.orders.get(shopId) || [];
+    let updated: Order | null = null;
     this.orders.set(
       shopId,
-      current.map((o) => (o.id === orderId ? { ...o, status } : o))
+      list.map((o) => {
+        if (o.id === orderId) {
+          updated = { ...o, status };
+          return updated;
+        }
+        return o;
+      })
     );
+    if (updated) {
+      this.persistData();
+    }
+    return updated;
   }
 
-  // --- Channels ---
+  // ============================================================================
+  // CHANNEL CONNECTION OPERATIONS (Canonical contracts & aliases)
+  // ============================================================================
+
   async getChannels(shopId: string): Promise<ChannelConnection[]> {
-    return this.channels.get(shopId) || [];
+    return [...(this.channels.get(shopId) || [])];
   }
 
-  // Find shop by Meta Facebook Page ID
-  async findShopByPageId(pageId: string): Promise<{ shop: Shop; channel: ChannelConnection } | null> {
+  async saveChannelConnection(
+    shopId: string,
+    channel: Omit<ChannelConnection, 'shopId'> & { shopId?: string }
+  ): Promise<ChannelConnection> {
+    const item: ChannelConnection = { ...channel, shopId };
+    const list = this.channels.get(shopId) || [];
+    const idx = list.findIndex((c) => c.id === item.id);
+    if (idx >= 0) {
+      list[idx] = item;
+    } else {
+      list.unshift(item);
+    }
+    this.channels.set(shopId, list);
+    this.persistData();
+    return item;
+  }
+
+  async findShopByChannel(
+    platform: PlatformType,
+    channelIdentifier: string
+  ): Promise<{ shop: Shop; channel: ChannelConnection } | null> {
     for (const [shopId, channelsList] of this.channels.entries()) {
-      const match = channelsList.find((ch) => ch.pageId === pageId && ch.platform === 'facebook');
+      const match = channelsList.find(
+        (ch) => ch.platform === platform && (ch.pageId === channelIdentifier || ch.id === channelIdentifier)
+      );
       if (match) {
         const shop = this.shops.get(shopId);
         if (shop) return { shop, channel: match };
       }
     }
+    return null;
+  }
+
+  async findShopByPageId(pageId: string): Promise<{ shop: Shop; channel: ChannelConnection } | null> {
+    const found = await this.findShopByChannel('facebook', pageId);
+    if (found) return found;
     // Default fallback to initial shop if page ID not specifically configured
     return { shop: INITIAL_SHOP, channel: INITIAL_CHANNELS[0] };
+  }
+
+  // ============================================================================
+  // TEST & RESET UTILITIES
+  // ============================================================================
+
+  async resetToSeed(): Promise<void> {
+    this.initSeed();
+    this.persistData();
+  }
+
+  async clear(): Promise<void> {
+    this.shops.clear();
+    this.products.clear();
+    this.channels.clear();
+    this.orders.clear();
+    this.persistData();
   }
 }
 

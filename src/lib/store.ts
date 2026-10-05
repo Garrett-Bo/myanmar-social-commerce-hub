@@ -20,6 +20,8 @@ export const INITIAL_CHANNELS: ChannelConnection[] = [
     platform: 'facebook',
     accountName: 'Aung Thukha Fashion - FB Page',
     pageId: '109283746501928',
+    accessToken: 'EAA_mock_fb_access_token_yangon_01',
+    webhookSecret: 'whsec_mock_fb_01',
     isActive: true,
     avatarUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=100&h=100&fit=crop&crop=faces',
   },
@@ -29,6 +31,8 @@ export const INITIAL_CHANNELS: ChannelConnection[] = [
     platform: 'tiktok',
     accountName: '@aungthukha_trend',
     pageId: 'tt_shop_8291029',
+    accessToken: 'tt_mock_access_token_yangon_01',
+    webhookSecret: 'whsec_mock_tt_01',
     isActive: true,
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
   },
@@ -142,6 +146,19 @@ export const INITIAL_CONVERSATIONS: Conversation[] = [
     unreadCount: 0,
     customerTownship: 'Kamayut',
   },
+  {
+    id: 'conv-mdy-01',
+    shopId: 'shop-mdy-02',
+    platform: 'facebook',
+    customerPlatformId: 'fb_usr_mdy_01',
+    customerName: 'Ko Zaw Min Tun',
+    customerAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop',
+    aiStatus: 'auto',
+    lastMessage: 'မန္တလေးချည်ထည် ပုဆိုးအရောင်စုံရှိလားဗျာ? ချမ်းအေးသာစံကို ပို့ပေးပါ',
+    lastMessageAt: '10:30 AM',
+    unreadCount: 1,
+    customerTownship: 'Chanayethazan',
+  },
 ];
 
 export const INITIAL_MESSAGES: Record<string, Message[]> = {
@@ -197,15 +214,26 @@ export const INITIAL_MESSAGES: Record<string, Message[]> = {
       rawContent: 'ဟုတ်ကဲ့ရပါတယ်ရှင့် ကမာရွတ်မြို့နယ်ဆို အိမ်အရောက် ငွေချေ (COD) ပို့ခ ၂၅၀၀ ကျပ်နဲ့ ၁-၂ ရက်အတွင်း ပို့ပေးပါတယ်ရှင့်။',
       normalizedContent: 'ဟုတ်ကဲ့ရပါတယ်ရှင့် ကမာရွတ်မြို့နယ်ဆို အိမ်အရောက် ငွေချေ (COD) ပို့ခ ၂၅၀၀ ကျပ်နဲ့ ၁-၂ ရက်အတွင်း ပို့ပေးပါတယ်ရှင့်။',
       createdAt: '11:52 AM',
-    }
-  ]
+    },
+  ],
+  'conv-mdy-01': [
+    {
+      id: 'msg-mdy-101',
+      conversationId: 'conv-mdy-01',
+      senderType: 'customer',
+      rawContent: 'မန္တလေးချည်ထည် ပုဆိုးအရောင်စုံရှိလားဗျာ? ချမ်းအေးသာစံကို ပို့ပေးပါ',
+      normalizedContent: 'မန္တလေးချည်ထည် ပုဆိုးအရောင်စုံရှိလားဗျာ? ချမ်းအေးသာစံကို ပို့ပေးပါ',
+      createdAt: '10:30 AM',
+    },
+  ],
 };
 
 export const INITIAL_ORDERS: Order[] = [
   {
     id: 'ord-9021',
     shopId: 'shop-yangon-01',
-    conversationId: 'conv-02',
+    platform: 'tiktok',
+    customerPlatformId: 'tt_user_4481',
     customerName: 'Ko Kyaw Swar Lin',
     customerPhone: '09791234567',
     township: 'Tamwe',
@@ -225,7 +253,8 @@ export const INITIAL_ORDERS: Order[] = [
   {
     id: 'ord-9018',
     shopId: 'shop-yangon-01',
-    conversationId: 'conv-01',
+    platform: 'facebook',
+    customerPlatformId: 'fb_user_9921',
     customerName: 'Ma Sandar',
     customerPhone: '09450011223',
     township: 'Sanchaung',
@@ -241,3 +270,16 @@ export const INITIAL_ORDERS: Order[] = [
     createdAt: '2026-10-04 10:15 AM',
   },
 ];
+
+/**
+ * Ephemeral chat helpers (Zero Chat Storage Architecture)
+ * Live chat threads are fetched ephemerally on-demand from Facebook/TikTok APIs
+ * and are NEVER stored in the database.
+ */
+export function getEphemeralConversations(shopId: string): Conversation[] {
+  return INITIAL_CONVERSATIONS.filter((c) => c.shopId === shopId);
+}
+
+export function getEphemeralMessages(conversationId: string): Message[] {
+  return INITIAL_MESSAGES[conversationId] || [];
+}

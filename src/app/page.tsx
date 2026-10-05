@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { db } from '@/lib/db';
+import { getEphemeralConversations, getEphemeralMessages } from '@/lib/store';
 import { Conversation, Message, Product } from '@/types';
 import { processCustomerMessage } from '@/lib/gemini-agent';
 import { normalizeBurmese } from '@/lib/burmese-converter';
@@ -36,16 +37,16 @@ export default function UnifiedInboxPage() {
   // Load tenant-scoped data when currentShop changes
   useEffect(() => {
     async function loadTenantData() {
-      const [convs, prods] = await Promise.all([
-        db.getConversations(currentShop.id),
-        db.getProducts(currentShop.id),
-      ]);
-      setConversations(convs);
+      const prods = await db.getProducts(currentShop.id);
       setProducts(prods);
+
+      // Ephemeral UI simulator state (Zero Chat Storage: chats are NOT stored in DB)
+      const convs = getEphemeralConversations(currentShop.id);
+      setConversations(convs);
 
       if (convs.length > 0) {
         setSelectedConvId(convs[0].id);
-        const msgs = await db.getMessages(convs[0].id);
+        const msgs = getEphemeralMessages(convs[0].id);
         setMessages({ [convs[0].id]: msgs });
       } else {
         setSelectedConvId('');
@@ -58,13 +59,11 @@ export default function UnifiedInboxPage() {
   // Load messages when conversation selection changes
   useEffect(() => {
     if (!selectedConvId) return;
-    async function loadMessages() {
-      if (!messages[selectedConvId]) {
-        const msgs = await db.getMessages(selectedConvId);
-        setMessages((prev) => ({ ...prev, [selectedConvId]: msgs }));
-      }
-    }
-    loadMessages();
+    setMessages((prev) => {
+      if (prev[selectedConvId]) return prev;
+      const msgs = getEphemeralMessages(selectedConvId);
+      return { ...prev, [selectedConvId]: msgs };
+    });
   }, [selectedConvId]);
 
   // Simulator State
