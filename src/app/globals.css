@@ -3,10 +3,44 @@
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+
+  /* Myanmar Commerce Design Palette */
+  --shwe-gold: #d97706;
+  --shwe-amber: #f59e0b;
+  --shwe-light: #fef3c7;
+
+  --jade-green: #059669;
+  --jade-emerald: #10b981;
+  --jade-light: #d1fae5;
+
+  --thanaka-cream: #faf7f2;
+  --thanaka-sand: #f3ede2;
+  --thanaka-border: #e8decf;
+
+  --royal-indigo: #4f46e5;
+  --royal-slate: #0f172a;
 }
 
 @theme {
   --font-sans: 'Pyidaungsu', 'Padauk', 'Noto Sans Myanmar', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-burmese: 'Pyidaungsu', 'Padauk', 'Noto Sans Myanmar', sans-serif;
+
+  --color-shwe-50: #fffbeb;
+  --color-shwe-100: #fef3c7;
+  --color-shwe-500: #f59e0b;
+  --color-shwe-600: #d97706;
+  --color-shwe-700: #b45309;
+
+  --color-jade-50: #ecfdf5;
+  --color-jade-100: #d1fae5;
+  --color-jade-500: #10b981;
+  --color-jade-600: #059669;
+  --color-jade-700: #047857;
+
+  --color-thanaka-50: #fbf9f5;
+  --color-thanaka-100: #f5f0e6;
+  --color-thanaka-200: #ebdcc9;
+  --color-thanaka-300: #ddc4a5;
 }
 
 body {
@@ -14,6 +48,43 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Burmese script typography rules: prevent diacritic clipping */
+.burmese-text {
+  font-family: var(--font-burmese);
+  line-height: 1.75;
+  letter-spacing: 0.01em;
+  word-break: break-word;
+}
+
+.burmese-heading {
+  font-family: var(--font-burmese);
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+/* Retail receipt paper styling */
+.receipt-paper {
+  background-color: #fbf9f5;
+  background-image: radial-gradient(#ebdcc9 0.75px, transparent 0.75px);
+  background-size: 12px 12px;
+  border: 1px dashed #d5c3ab;
+}
+
+/* Glassmorphism elevation */
+.glass-card {
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+}
+
+.glass-card-dark {
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(51, 65, 85, 0.6);
 }
 
 /* Custom scrollbar for Myanmar live inbox */
@@ -31,3 +102,66 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Myanmar Commerce Badges */
+.badge-shwe {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-jade {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-thanaka {
+  background: #faf7f2;
+  color: #785d38;
+  border: 1px solid #ebdcc9;
+}
+
+.badge-busgate {
+  background: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #ddd6fe;
+}
+
+.badge-royal {
+  background: #e0e7ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+}
+
+/* Authentic Paper Receipt Sawtooth Serrated Bottom Edge */
+.voucher-sawtooth {
+  position: relative;
+}
+.voucher-sawtooth::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background-image: radial-gradient(circle, transparent, transparent 50%, #fbf9f5 50%, #fbf9f5 100%);
+  background-size: 10px 10px;
+}
+
+/* Subtle micro-animations */
+@keyframes pulseSlow {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulseSlow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+

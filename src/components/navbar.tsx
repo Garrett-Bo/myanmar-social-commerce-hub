@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { MessageSquare, Package, ShoppingBag, Settings, Bot, Store, ChevronDown } from 'lucide-react';
+import { MessageSquare, Package, ShoppingBag, Settings, Bot, Store, ChevronDown, ShieldCheck } from 'lucide-react';
 
 export function Navbar() {
   const { currentShop, availableShops, switchShop } = useAuth();
@@ -17,17 +17,30 @@ export function Navbar() {
         <div className="flex items-center space-x-3">
           <Link
             href="/"
-            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-100 shrink-0"
+            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-indigo-100 shrink-0"
           >
             <Bot className="w-5 h-5" />
           </Link>
 
           <div className="relative group">
             <div className="flex items-center space-x-1.5 cursor-pointer">
-              <span className="font-bold text-sm sm:text-base text-slate-900 tracking-tight truncate max-w-[200px] sm:max-w-xs">
+              <span className="font-bold text-sm sm:text-base text-slate-900 tracking-tight truncate max-w-[180px] sm:max-w-xs burmese-heading">
                 {currentShop?.name || 'ShweShop AI'}
               </span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-800">
+              {currentShop?.subscription?.plan === 'business' ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold badge-royal">
+                  Business
+                </span>
+              ) : currentShop?.subscription?.plan === 'pro' ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold badge-shwe">
+                  ★ Pro
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium badge-thanaka">
+                  Starter
+                </span>
+              )}
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium badge-jade">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
                 Live
               </span>
@@ -43,18 +56,18 @@ export function Navbar() {
                 <button
                   key={s.id}
                   onClick={() => switchShop(s.id)}
-                  className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-indigo-50/50 transition-colors ${
-                    s.id === currentShop?.id ? 'text-indigo-600 font-bold bg-indigo-50/70' : 'text-slate-700'
+                  className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-amber-50/50 transition-colors ${
+                    s.id === currentShop?.id ? 'text-amber-800 font-bold bg-amber-50/70' : 'text-slate-700'
                   }`}
                 >
-                  <span className="truncate">{s.name}</span>
-                  {s.id === currentShop?.id && <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0" />}
+                  <span className="truncate burmese-text">{s.name}</span>
+                  {s.id === currentShop?.id && <span className="w-1.5 h-1.5 rounded-full bg-amber-600 shrink-0" />}
                 </button>
               ))}
               <div className="border-t border-slate-100 mt-1 pt-1">
                 <Link
                   href="/login"
-                  className="block px-3 py-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-semibold"
+                  className="block px-3 py-1.5 text-xs text-amber-700 hover:text-amber-800 font-semibold"
                 >
                   + Add or Manage Shops
                 </Link>
@@ -111,8 +124,20 @@ export function Navbar() {
           </Link>
         </nav>
 
-        {/* Multi-Tenant Portal Link */}
+        {/* SaaS Provider Console & Shop Switcher */}
         <div className="flex items-center space-x-2">
+          <Link
+            href="/provider"
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
+              pathname === '/provider'
+                ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                : 'border-purple-200 text-purple-700 hover:bg-purple-50 bg-purple-50/50'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Provider Console</span>
+          </Link>
+
           <Link
             href="/login"
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-indigo-300 text-xs font-semibold text-slate-700 hover:text-indigo-600 bg-slate-50 transition-colors"

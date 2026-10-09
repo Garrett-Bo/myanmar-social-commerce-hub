@@ -626,16 +626,28 @@ const TOWNSHIP_ALIASES: Record<string, string[]> = {
   Twante: ['Twantay', 'Twan Te', 'တွံတေး', 'တြံေတး', 'တွံတေးမြို့နယ်'],
 
   // Mandalay
-  Chanayethazan: ['Chan Aye Thar Zan', 'Chanayethazan Township', 'ချမ်းအေးသာစံ', 'ခ်မ္းေအးသာစံ', 'ချမ်းအေးသာစံမြို့နယ်', 'မန္တလေး ချမ်းအေးသာစံ'],
+  Chanayethazan: ['Chan Aye Thar Zan', 'Chanayethazan Township', 'ချမ်းအေးသာစံ', 'ခ်မ္းေအးသာစံ', 'ခ်မ်းအေးသာစံ', 'ချမ်းအေးသာစံမြို့နယ်', 'မန္တလေး ချမ်းအေးသာစံ'],
   Mahaaungmyay: ['Maha Aung Myay', 'Maha Aung Mye', 'မဟာအောင်မြေ', 'မဟာေအာင္ေျမ', 'မဟာအောင်မြေမြို့နယ်', 'မန္တလေး မဟာအောင်မြေ'],
   Aungmyaythazan: ['Aung Mye Thar Zan', 'Aung Myay Thar Zan', 'အောင်မြေသာစံ', 'ေအာင္ေျမသာစံ', 'အောင်မြေသာစံမြို့နယ်', 'မန္တလေး အောင်မြေသာစံ'],
-  Chanmyathazi: ['Chan Mya Thar Si', 'Chan Mya Thazi', 'ချမ်းမြသာစည်', 'ခ်မ္းျမသာစည္', 'ချမ်းမြသာစည်မြို့နယ်', 'မန္တလေး ချမ်းမြသာစည်'],
+  Chanmyathazi: ['Chan Mya Thar Si', 'Chan Mya Thazi', 'ချမ်းမြသာစည်', 'ခ်မ္းျမသာစည္', 'ခ်မ်းမြသာစည်', 'ချမ်းမြသာစည်မြို့နယ်', 'မန္တလေး ချမ်းမြသာစည်'],
   Pyigyidagun: ['Pyi Gyi Ta Gon', 'Pyigyitagun', 'ပြည်ကြီးတံခွန်', 'ျပည္ႀကီးတံခြန္', 'ပြည်ကြီးတံခွန်မြို့နယ်', 'မန္တလေး ပြည်ကြီးတံခွန်'],
   Amarapura: ['Amapura', 'Ama Ra Pu Ra', 'အမရပူရ', 'အမရပူရမြို့နယ်', 'တောင်သမန်', 'ဦးပိန်တံတား'],
   Patheingyi: ['Pathein Gyi', 'Pa Thein Gyi', 'ပုသိမ်ကြီး', 'ပုသိမ္ႀကီး', 'ပုသိမ်ကြီးမြို့နယ်', 'မန္တလေး ပုသိမ်ကြီး'],
 
   // Naypyitaw
-  Zabuthiri: ['Zabu Thiri', 'ဇမ္ဗူသီရိ', 'ဇမၺဴသီရိ', 'ဇမ္ဗူသီရိမြို့နယ်', 'နေပြည်တော် ဇမ္ဗူသီရိ'],
+  Zabuthiri: [
+    'Zabu Thiri',
+    'ဇမ္ဗူသီရိ',
+    'ဇမၺဴသီရိ',
+    'ဇမ္ဗူသီရိမြို့နယ်',
+    'နေပြည်တော် ဇမ္ဗူသီရိ',
+    'နေပြည်တော်',
+    'ေနျပည္ေတာ္',
+    'နေပြည်တော်မြို့',
+    'naypyitaw',
+    'nay pyi taw',
+    'naypyitaw city',
+  ],
   Ottarathiri: ['Ottara Thiri', 'ဥတ္တရသီရိ', 'ဥတၱရသီရိ', 'ဥတ္တရသီရိမြို့နယ်', 'နေပြည်တော် ဥတ္တရသီရိ'],
   Dekkhinathiri: ['Dekkhina Thiri', 'Dakkina Thiri', 'ဒက္ခိဏသီရိ', 'ဒကၡိဏသီရိ', 'ဒက္ခိဏသီရိမြို့နယ်', 'နေပြည်တော် ဒက္ခိဏသီရိ'],
   Pobbathiri: ['Pobba Thiri', 'Pubba Thiri', 'ပုဗ္ဗသီရိ', 'ပုဗၺသီရိ', 'ပုဗ္ဗသီရိမြို့နယ်', 'နေပြည်တော် ပုဗ္ဗသီရိ'],
@@ -744,16 +756,43 @@ export function lookupTownshipDelivery(query: string): TownshipDeliveryInfo | nu
   }
 
   // Tier 2: Strip common prefixes and suffixes
-  const stripped = queryLower
-    .replace(/^(မန္တလေး|နေပြည်တော်|ရန်ကုန်|yangon|mandalay|naypyitaw)\s*/gi, '')
+  // First, strip common suffixes (e.g. "စမ်းချောင်းမြို့နယ်", "မော်လမြိုင်မြို့", "နေပြည်တော်မြို့")
+  const suffixStripped = queryLower
     .replace(/\s*(မြို့နယ်|မြို့|township|tsp|city|ကားဂိတ်|ဂိတ်|bus gate|gate)$/gi, '')
     .trim();
 
-  if (stripped && stripped !== queryLower) {
+  if (suffixStripped && suffixStripped !== queryLower) {
     for (const entry of SEARCH_INDEX) {
-      if (stripped === entry.pattern) {
+      if (suffixStripped === entry.pattern) {
         return enrichDeliveryInfo(entry.item);
       }
+    }
+  }
+
+  // Next, strip metro prefixes (e.g. "Yangon Sanchaung", "ရန်ကုန် စမ်းချောင်း")
+  const targetForPrefix = suffixStripped || queryLower;
+  const prefixStripped = targetForPrefix
+    .replace(/^(မန္တလေး|နေပြည်တော်|ရန်ကုန်|yangon|mandalay|naypyitaw)\s*/gi, '')
+    .trim();
+
+  if (prefixStripped) {
+    if (prefixStripped !== queryLower) {
+      for (const entry of SEARCH_INDEX) {
+        if (prefixStripped === entry.pattern) {
+          return enrichDeliveryInfo(entry.item);
+        }
+      }
+    }
+  } else {
+    // Prefix stripping collapsed query to "" (pure metro name)
+    const metroToken = queryLower.match(/^(မန္တလေး|နေပြည်တော်|ရန်ကုန်|yangon|mandalay|naypyitaw)/i)?.[0];
+    if (metroToken) {
+      for (const entry of SEARCH_INDEX) {
+        if (metroToken === entry.pattern) {
+          return enrichDeliveryInfo(entry.item);
+        }
+      }
+      return null;
     }
   }
 
@@ -783,8 +822,9 @@ export function isRegionalPrepaidOnly(query: string): boolean {
     return !matched.codAvailable;
   }
 
-  // Fallback heuristic: check for explicit highway bus gate or regional cargo indicators
   const normalized = query.trim().toLowerCase();
+
+  // Highway bus gate or regional cargo indicators ALWAYS require prepaid
   const regionalIndicators = [
     'ကားဂိတ်',
     'အဝေးပြေး',
@@ -799,5 +839,15 @@ export function isRegionalPrepaidOnly(query: string): boolean {
     'prepaid only',
   ];
 
-  return regionalIndicators.some((k) => normalized.includes(k));
+  if (regionalIndicators.some((k) => normalized.includes(k))) {
+    return true;
+  }
+
+  // Pure metro region indicators (Yangon, Mandalay, Naypyitaw) support COD -> return false
+  const metroIndicators = ['yangon', 'mandalay', 'naypyitaw', 'ရန်ကုန်', 'မန္တလေး', 'နေပြည်တော်'];
+  if (metroIndicators.some((k) => normalized.includes(k))) {
+    return false;
+  }
+
+  return false;
 }

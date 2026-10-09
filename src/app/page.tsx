@@ -5,7 +5,7 @@ import { db } from '@/lib/db';
 import { getEphemeralConversations, getEphemeralMessages } from '@/lib/store';
 import { Conversation, Message, Product } from '@/types';
 import { processCustomerMessage } from '@/lib/gemini-agent';
-import { normalizeBurmese } from '@/lib/burmese-converter';
+import { normalizeBurmese, toBurmeseNumerals } from '@/lib/burmese-converter';
 import {
   Bot,
   User,
@@ -21,10 +21,76 @@ import {
   MessageSquare,
   Play,
   Share2,
+  Receipt,
+  Tag,
 } from 'lucide-react';
 import { FacebookIcon, TikTokIcon } from '@/components/icons';
 
+const BURMESE_QUICK_REPLIES = [
+  { label: '🛍️ ဆီရမ် ဈေးဘယ်လောက်လဲ', query: 'Serum ဈေးဘယ်လောက်လဲရှင့်? instock ရှိလား?' },
+  { label: '🚚 စမ်းချောင်း ပို့ခ ဘယ်လောက်လဲ', query: 'စမ်းချောင်းမြို့နယ် ပို့ခ ဘယ်လောက်ကျမလဲ?' },
+  { label: '💳 KPay နဲ့ ရှင်းမယ်', query: 'Lip tint ၁ ဘူး KPay နဲ့ ဝယ်ပါမယ်' },
+  { label: '📦 COD ရလား', query: 'ပစ္စည်းရောက်မှ ငွေချေ (COD) ရလားခင်ဗျာ?' },
+  { label: '🚌 မန္တလေး ကားဂိတ်ပို့', query: 'မန္တလေး ကားဂိတ်ကနေ ပို့ပေးလို့ရမလား?' },
+];
+
+const SIMULATOR_PERSONAS = [
+  {
+    name: 'Ma Thiri San',
+    nameMm: 'မသီရိစံ',
+    township: 'Sanchaung',
+    channel: 'facebook' as const,
+    presetQuery: 'Serum နဲ့ lip tint စမ်းချောင်းကို ပို့ခဘယ်လောက်ကျမလဲ? KPay နဲ့ ဝယ်ချင်လို့ပါ',
+    badge: 'Yangon COD',
+  },
+  {
+    name: 'Ko Min Min',
+    nameMm: 'ကိုမင်းမင်း',
+    township: 'Chanayethazan',
+    channel: 'tiktok' as const,
+    presetQuery: 'ေလာင္ဂ်ီ ၂ ထည္ မႏၲေလး ခ်မ္းေအးသာစံကို ပို႔ေပးပါ KPay နဲ႔ခ်င္ပါတယ္',
+    badge: 'Mandalay Zawgyi',
+  },
+  {
+    name: 'Ma Nan Hsai',
+    nameMm: 'မနန်းဆိုင်',
+    township: 'Taunggyi',
+    channel: 'tiktok' as const,
+    presetQuery: 'Vintage bag တောင်ကြီးကို ကားဂိတ်ကနေ ပို့ပေးလို့ရမလား? KPay နဲ့ ရှင်းပါမယ်',
+    badge: 'Highway Bus Gate',
+  },
+];
+
+function BurmeseVoucherPreview({ content }: { content: string }) {
+  const hasVoucher = content.includes('ဘောက်ချာ') || (content.includes('အော်ဒါ') && content.includes('MMK'));
+  if (!hasVoucher) return null;
+
+  return (
+    <div className="mt-3 p-3.5 rounded-xl receipt-paper voucher-sawtooth text-xs text-slate-800 shadow-sm border border-amber-300/80">
+      <div className="flex items-center justify-between border-b border-dashed border-amber-300/80 pb-2 mb-2">
+        <div className="flex items-center space-x-1.5">
+          <span className="text-amber-600 font-bold text-sm">⚜️</span>
+          <span className="font-bold text-amber-950 burmese-heading tracking-tight">
+            တရားဝင် အော်ဒါဘောက်ချာ (Order Voucher)
+          </span>
+        </div>
+        <span className="badge-jade px-2 py-0.5 rounded-full text-[10px] font-bold">
+          Verified
+        </span>
+      </div>
+      <div className="text-[11px] text-slate-700 burmese-text whitespace-pre-wrap leading-relaxed">
+        {content}
+      </div>
+      <div className="mt-2.5 pt-2 border-t border-dashed border-amber-300/80 flex items-center justify-between text-[10px] text-slate-500 font-medium">
+        <span>Myanmar Social Commerce</span>
+        <span className="font-bold text-amber-800">ShweShop Hub Certified</span>
+      </div>
+    </div>
+  );
+}
+
 export default function UnifiedInboxPage() {
+
   const { currentShop } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConvId, setSelectedConvId] = useState<string>('');
@@ -254,7 +320,7 @@ export default function UnifiedInboxPage() {
                 key={conv.id}
                 onClick={() => setSelectedConvId(conv.id)}
                 className={`p-3.5 cursor-pointer transition-colors relative flex space-x-3 items-start ${
-                  isSelected ? 'bg-indigo-50/70 border-l-4 border-indigo-600' : 'hover:bg-slate-50'
+                  isSelected ? 'bg-amber-50/50 border-l-4 border-amber-600' : 'hover:bg-slate-50'
                 }`}
               >
                 {/* Avatar with Platform Badge */}
@@ -262,7 +328,9 @@ export default function UnifiedInboxPage() {
                   <img
                     src={conv.customerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop'}
                     alt={conv.customerName}
-                    className="w-11 h-11 rounded-full object-cover border border-slate-200"
+                    className={`w-11 h-11 rounded-full object-cover border border-slate-200 ${
+                      conv.platform === 'facebook' ? 'ring-2 ring-blue-500/30' : 'ring-2 ring-pink-500/30'
+                    }`}
                   />
                   <div
                     className={`absolute -bottom-1 -right-1 p-0.5 rounded-full text-white ${
@@ -280,7 +348,7 @@ export default function UnifiedInboxPage() {
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
-                    <span className="font-semibold text-sm text-slate-900 truncate">
+                    <span className="font-bold text-sm text-slate-900 truncate burmese-heading">
                       {conv.customerName}
                     </span>
                     <span className="text-[11px] text-slate-400 shrink-0 flex items-center">
@@ -289,26 +357,26 @@ export default function UnifiedInboxPage() {
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-600 truncate leading-relaxed">
+                  <p className="text-xs text-slate-600 truncate leading-relaxed burmese-text">
                     {conv.lastMessage}
                   </p>
 
                   <div className="flex items-center space-x-2 mt-2">
                     {conv.aiStatus === 'auto' ? (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold badge-jade">
                         <Bot className="w-2.5 h-2.5 mr-1 text-emerald-600" />
                         AI Auto-Replying
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold badge-shwe">
                         <User className="w-2.5 h-2.5 mr-1 text-amber-600" />
                         Human Takeover
                       </span>
                     )}
 
                     {conv.customerTownship && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600">
-                        <MapPin className="w-2.5 h-2.5 mr-0.5 text-slate-400" />
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] badge-thanaka font-medium">
+                        <MapPin className="w-2.5 h-2.5 mr-0.5 text-amber-700" />
                         {conv.customerTownship}
                       </span>
                     )}
@@ -385,7 +453,7 @@ export default function UnifiedInboxPage() {
             </div>
 
             {/* Message Log */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#f8fafc]">
               {activeMessages.map((msg) => {
                 const isCustomer = msg.senderType === 'customer';
                 const isAi = msg.senderType === 'ai';
@@ -396,8 +464,8 @@ export default function UnifiedInboxPage() {
                     className={`flex flex-col ${isCustomer ? 'items-start' : 'items-end'}`}
                   >
                     <div className="flex items-center space-x-1.5 mb-1 text-[11px] text-slate-400">
-                      {isAi && <Sparkles className="w-3 h-3 text-emerald-500" />}
-                      <span>
+                      {isAi && <Sparkles className="w-3 h-3 text-amber-500" />}
+                      <span className="font-medium">
                         {isCustomer
                           ? activeConversation?.customerName
                           : isAi
@@ -409,26 +477,50 @@ export default function UnifiedInboxPage() {
                     </div>
 
                     <div
-                      className={`max-w-lg rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line shadow-xs ${
+                      className={`max-w-xl rounded-2xl px-4 py-3 text-sm burmese-text leading-relaxed whitespace-pre-line shadow-xs transition-all ${
                         isCustomer
-                          ? 'bg-white border border-slate-200 text-slate-800 rounded-tl-xs'
+                          ? 'bg-[#fdfcf9] border border-amber-200/60 text-slate-900 rounded-tl-xs shadow-slate-200/50'
                           : isAi
-                          ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-tr-xs shadow-indigo-100'
-                          : 'bg-slate-800 text-white rounded-tr-xs'
+                          ? 'bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-700 text-white rounded-tr-xs shadow-indigo-200/40'
+                          : 'bg-slate-900 text-white rounded-tr-xs'
                       }`}
                     >
                       {msg.rawContent}
+
+                      {/* Authentic Myanmar Order Voucher Card */}
+                      {isAi && <BurmeseVoucherPreview content={msg.rawContent} />}
                     </div>
                   </div>
                 );
               })}
 
               {isAiProcessing && (
-                <div className="flex items-center space-x-2 text-xs text-indigo-600 bg-indigo-50 p-3 rounded-xl border border-indigo-100 animate-pulse">
-                  <Sparkles className="w-4 h-4 text-indigo-600 animate-spin" />
-                  <span>AI is checking live inventory and calculating delivery fee in Burmese...</span>
+                <div className="flex items-center space-x-2 text-xs text-amber-800 bg-amber-50/90 p-3 rounded-xl border border-amber-200 animate-pulse">
+                  <Sparkles className="w-4 h-4 text-amber-600 animate-spin" />
+                  <span className="burmese-text">AI မှ ပစ္စည်းလက်ကျန် စစ်ဆေးနေပြီး မြို့နယ်အလိုက် ပို့ခ တွက်ချက်နေပါသည်...</span>
                 </div>
               )}
+            </div>
+
+            {/* Burmese Quick Reply Action Chips */}
+            <div className="px-3 py-2 bg-slate-50/90 border-t border-slate-200 flex items-center space-x-1.5 overflow-x-auto text-[11px]">
+              <span className="text-slate-400 font-semibold shrink-0 text-[10px] uppercase tracking-wider flex items-center">
+                <Sparkles className="w-3 h-3 mr-1 text-amber-500" />
+                Quick Ask:
+              </span>
+              {BURMESE_QUICK_REPLIES.map((qr, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setInputText(qr.query);
+                    setSimMessage(qr.query);
+                  }}
+                  className="px-2.5 py-1 rounded-full bg-white hover:bg-amber-50 text-slate-700 hover:text-amber-900 border border-slate-200 hover:border-amber-300 whitespace-nowrap transition-colors shadow-2xs burmese-text text-[11px]"
+                >
+                  {qr.label}
+                </button>
+              ))}
             </div>
 
             {/* Chat Input Bar */}
@@ -444,11 +536,11 @@ export default function UnifiedInboxPage() {
                       ? 'Type to reply manually (AI is currently actively answering)...'
                       : 'Type a message as staff agent...'
                   }
-                  className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
+                  className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-slate-50/60 burmese-text"
                 />
                 <button
                   onClick={handleSendManualMessage}
-                  className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center space-x-1.5"
+                  className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white rounded-xl text-sm font-semibold transition-all flex items-center space-x-1.5 shadow-sm shadow-amber-200/50"
                 >
                   <Send className="w-4 h-4" />
                   <span>Send</span>
@@ -487,15 +579,45 @@ export default function UnifiedInboxPage() {
           </p>
 
           <div className="space-y-2.5 text-xs">
+            {/* Persona Scenarios Quick Buttons */}
+            <div>
+              <label className="block text-[11px] text-slate-300 font-semibold mb-1 flex items-center justify-between">
+                <span>Select Customer Persona:</span>
+                <span className="text-[10px] text-amber-300">1-Click Auto Fill</span>
+              </label>
+              <div className="grid grid-cols-1 gap-1">
+                {SIMULATOR_PERSONAS.map((p, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setSimCustomerName(p.name);
+                      setSimChannel(p.channel);
+                      setSimMessage(p.presetQuery);
+                    }}
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-amber-400/50 flex items-center justify-between text-[11px] transition-all text-left"
+                  >
+                    <div className="flex items-center space-x-1.5 truncate">
+                      <span className="font-semibold text-white">{p.name}</span>
+                      <span className="text-slate-400 text-[10px] burmese-text">({p.nameMm})</span>
+                    </div>
+                    <span className="badge-shwe px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0">
+                      {p.badge}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Channel Pick */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setSimChannel('facebook')}
-                className={`py-1.5 px-2 rounded-lg flex items-center justify-center space-x-1 border ${
+                className={`py-1.5 px-2 rounded-lg flex items-center justify-center space-x-1 border transition-all ${
                   simChannel === 'facebook'
-                    ? 'bg-blue-600 border-blue-500 text-white font-semibold'
-                    : 'bg-white/5 border-white/10 text-slate-300'
+                    ? 'bg-blue-600 border-blue-500 text-white font-semibold shadow-xs'
+                    : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
                 }`}
               >
                 <FacebookIcon className="w-3.5 h-3.5 mr-1" />
@@ -504,10 +626,10 @@ export default function UnifiedInboxPage() {
               <button
                 type="button"
                 onClick={() => setSimChannel('tiktok')}
-                className={`py-1.5 px-2 rounded-lg flex items-center justify-center space-x-1 border ${
+                className={`py-1.5 px-2 rounded-lg flex items-center justify-center space-x-1 border transition-all ${
                   simChannel === 'tiktok'
-                    ? 'bg-pink-600 border-pink-500 text-white font-semibold'
-                    : 'bg-white/5 border-white/10 text-slate-300'
+                    ? 'bg-slate-900 border-pink-500 text-pink-400 font-semibold shadow-xs'
+                    : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
                 }`}
               >
                 <TikTokIcon className="w-3.5 h-3.5 mr-1" />
@@ -522,7 +644,7 @@ export default function UnifiedInboxPage() {
                 type="text"
                 value={simCustomerName}
                 onChange={(e) => setSimCustomerName(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/20 text-white text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                className="w-full px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/20 text-white text-xs focus:outline-none focus:ring-1 focus:ring-amber-400 font-medium"
               />
             </div>
 
@@ -533,41 +655,16 @@ export default function UnifiedInboxPage() {
                 rows={2}
                 value={simMessage}
                 onChange={(e) => setSimMessage(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/20 text-white text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                className="w-full px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/20 text-white text-xs focus:outline-none focus:ring-1 focus:ring-amber-400 burmese-text"
               />
-            </div>
-
-            {/* Quick Preset Buttons */}
-            <div className="flex flex-wrap gap-1 pt-1">
-              <button
-                type="button"
-                onClick={() => setSimMessage('Serum နဲ့ lip tint စမ်းချောင်းကို ပို့ခဘယ်လောက်ကျမလဲ?')}
-                className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded text-indigo-200"
-              >
-                ⚡ Price + Deli
-              </button>
-              <button
-                type="button"
-                onClick={() => setSimMessage('Lip tint 1 ဘူး ဝယ်မယ်ဗျာ မရမ်းကုန်းမြို့နယ် KPay နဲ့ ချေပါမယ်')}
-                className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded text-indigo-200"
-              >
-                ⚡ KPay Order
-              </button>
-              <button
-                type="button"
-                onClick={() => setSimMessage('အိတ် instock ရှိလားရှင်? မန္တလေး ချမ်းအေးသာစံကို COD ရမလား?')}
-                className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded text-indigo-200"
-              >
-                ⚡ Mandalay COD
-              </button>
             </div>
 
             <button
               type="button"
               onClick={handleSimulateInbound}
-              className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-bold rounded-lg text-xs transition-colors flex items-center justify-center space-x-1 shadow-md shadow-emerald-900/40"
+              className="w-full py-2.5 bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-950/40"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Sparkles className="w-4 h-4 text-amber-200" />
               <span>Send Simulated Customer Message</span>
             </button>
           </div>
@@ -577,37 +674,48 @@ export default function UnifiedInboxPage() {
         <div className="p-4 flex-1">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-xs font-bold text-slate-800 flex items-center uppercase tracking-wider">
-              <ShoppingBag className="w-3.5 h-3.5 mr-1 text-indigo-600" />
+              <ShoppingBag className="w-3.5 h-3.5 mr-1 text-amber-600" />
               Live Stock Status ({products.length})
             </h4>
-            <span className="text-[11px] text-emerald-600 font-medium">Google Sheets Synced</span>
+            <span className="badge-jade text-[10px] px-2 py-0.5 rounded-full font-bold">
+              Google Sheets Live
+            </span>
           </div>
 
           <div className="space-y-2.5">
             {products.map((prod) => (
               <div
                 key={prod.id}
-                className="flex items-center space-x-3 p-2 rounded-xl border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/30 transition-all text-xs"
+                onClick={() => {
+                  setSimMessage(`${prod.nameMm} ဈေးဘယ်လောက်လဲရှင့်? instock ရှိလား?`);
+                }}
+                className="flex items-center space-x-3 p-2.5 rounded-xl border border-slate-200/80 hover:border-amber-300 hover:bg-amber-50/30 transition-all text-xs cursor-pointer group shadow-2xs"
+                title="Click to test inquiry for this item"
               >
                 <img
                   src={prod.imageUrl}
                   alt={prod.nameMm}
-                  className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
+                  className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0 group-hover:scale-105 transition-transform"
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-900 truncate">{prod.nameMm}</p>
-                  <p className="text-[11px] text-indigo-600 font-bold">
-                    {prod.priceMmk.toLocaleString()} MMK
-                  </p>
-                  <div className="flex items-center space-x-1.5 mt-0.5">
+                  <p className="font-bold text-slate-900 truncate burmese-heading">{prod.nameMm}</p>
+                  <div className="flex items-baseline space-x-1.5 mt-0.5">
+                    <span className="text-xs text-amber-800 font-extrabold">
+                      {prod.priceMmk.toLocaleString()} MMK
+                    </span>
+                    <span className="text-[10px] text-slate-400 burmese-text">
+                      ({toBurmeseNumerals(prod.priceMmk.toLocaleString())} ကျပ်)
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-1.5 mt-1">
                     {prod.stockQuantity > 0 ? (
-                      <span className="text-[10px] text-emerald-700 font-medium flex items-center">
-                        <CheckCircle2 className="w-3 h-3 mr-0.5 text-emerald-500" />
+                      <span className="badge-jade text-[9px] px-1.5 py-0.2 rounded font-bold flex items-center">
+                        <CheckCircle2 className="w-2.5 h-2.5 mr-0.5 text-emerald-600" />
                         {prod.stockQuantity} in stock
                       </span>
                     ) : (
-                      <span className="text-[10px] text-rose-600 font-medium flex items-center">
-                        <AlertCircle className="w-3 h-3 mr-0.5 text-rose-500" />
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-bold flex items-center">
+                        <AlertCircle className="w-2.5 h-2.5 mr-0.5 text-rose-500" />
                         Out of stock
                       </span>
                     )}

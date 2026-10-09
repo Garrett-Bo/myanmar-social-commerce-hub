@@ -31,12 +31,13 @@ export async function POST(req: NextRequest) {
         const pageId = entry.id; // The Facebook Page that received the message
         const webhookEvent = entry.messaging?.[0];
 
-        if (webhookEvent && webhookEvent.message && webhookEvent.message.text) {
+        // Ensure message exists, is not a bot echo, and contains text
+        if (webhookEvent && webhookEvent.message && !webhookEvent.message.is_echo && webhookEvent.message.text) {
           const senderId = webhookEvent.sender.id; // Customer PSID
           const rawMessageText = webhookEvent.message.text;
 
-          // 1. Multi-Tenant Lookup: Match incoming Page ID to the owning shop
-          const match = await db.findShopByPageId(pageId);
+          // 1. Multi-Tenant Lookup: Match incoming Page ID strictly to the owning shop
+          const match = await db.findShopByChannel('facebook', pageId);
           const shop = match?.shop;
           const channel = match?.channel;
 
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
           const normalized = normalizeBurmese(rawMessageText);
           console.log(`[FB Inbound for Shop "${shop.name}"] from ${senderId}: ${normalized}`);
 
-          // 4. Run Burmese AI Agent
+          // 4. Run Burmese AI Agent (ephemeral in-memory processing)
           const aiResponse = await processCustomerMessage(normalized, {
             shop,
             products,
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
           console.log(`[AI Response for Shop "${shop.name}"]: ${aiResponse.replyTextMm}`);
 
           // 5. Outbound Dispatch: Send message back to the customer on Facebook Messenger
-          const pageAccessToken = process.env.FB_PAGE_ACCESS_TOKEN || channel?.pageId;
+          const pageAccessToken = channel?.accessToken || process.env.FB_PAGE_ACCESS_TOKEN;
           if (pageAccessToken) {
             const sendResult = await sendFacebookMessage(
               senderId,
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
             );
             console.log(`[FB Outbound Result]:`, sendResult);
           } else {
-            console.log(`[FB Outbound Skipped]: No FB_PAGE_ACCESS_TOKEN configured in environment.`);
+            console.log(`[FB Outbound Skipped]: No access token configured for Facebook channel.`);
           }
         }
       }

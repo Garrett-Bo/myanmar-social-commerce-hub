@@ -11,6 +11,16 @@ export const INITIAL_SHOP: Shop = {
   kpayName: 'Daw Thandar Aung',
   waveNumber: '09798765432',
   waveName: 'Daw Thandar Aung',
+  subscription: {
+    plan: 'pro',
+    status: 'active',
+    monthlyOrderLimit: 1000,
+    currentMonthOrders: 42,
+    monthlyAiTokensUsed: 12000,
+    monthlyAiTokenLimit: 100000,
+    priceMmk: 25000,
+    expiresAt: '2026-12-31T23:59:59.000Z',
+  },
 };
 
 export const INITIAL_CHANNELS: ChannelConnection[] = [

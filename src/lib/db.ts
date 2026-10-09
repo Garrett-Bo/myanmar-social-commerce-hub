@@ -1,4 +1,4 @@
-import { Product, Order, ChannelConnection, Shop, OrderStatus, PlatformType } from '@/types';
+import { Product, Order, ChannelConnection, Shop, OrderStatus, PlatformType, SubscriptionPlan, ProviderMetrics } from '@/types';
 import { INITIAL_SHOP, INITIAL_PRODUCTS, INITIAL_ORDERS, INITIAL_CHANNELS } from './store';
 
 // Additional sample tenant shops for multi-tenant simulation
@@ -15,6 +15,16 @@ export const MOCK_SHOPS: Shop[] = [
     kpayName: 'Ko Ye Yint Aung',
     waveNumber: '09451122334',
     waveName: 'Ko Ye Yint Aung',
+    subscription: {
+      plan: 'starter',
+      status: 'active',
+      monthlyOrderLimit: 100,
+      currentMonthOrders: 88,
+      monthlyAiTokensUsed: 4200,
+      monthlyAiTokenLimit: 20000,
+      priceMmk: 0,
+      expiresAt: '2026-12-31T23:59:59.000Z',
+    },
   },
   {
     id: 'shop-npt-03',
@@ -27,6 +37,16 @@ export const MOCK_SHOPS: Shop[] = [
     kpayName: 'Daw May Thu',
     waveNumber: '09250099887',
     waveName: 'Daw May Thu',
+    subscription: {
+      plan: 'business',
+      status: 'active',
+      monthlyOrderLimit: 10000,
+      currentMonthOrders: 310,
+      monthlyAiTokensUsed: 48000,
+      monthlyAiTokenLimit: 500000,
+      priceMmk: 60000,
+      expiresAt: '2026-12-31T23:59:59.000Z',
+    },
   },
 ];
 
@@ -182,6 +202,26 @@ export class MultiTenantDB {
     this.orders.clear();
 
     for (const shop of data.shops || []) {
+      if (!shop.subscription) {
+        if (shop.id === INITIAL_SHOP.id) {
+          shop.subscription = { ...INITIAL_SHOP.subscription! };
+        } else if (shop.id === MOCK_SHOPS[1]?.id) {
+          shop.subscription = { ...MOCK_SHOPS[1].subscription! };
+        } else if (shop.id === MOCK_SHOPS[2]?.id) {
+          shop.subscription = { ...MOCK_SHOPS[2].subscription! };
+        } else {
+          shop.subscription = {
+            plan: 'starter',
+            status: 'active',
+            monthlyOrderLimit: 100,
+            currentMonthOrders: 0,
+            monthlyAiTokensUsed: 0,
+            monthlyAiTokenLimit: 20000,
+            priceMmk: 0,
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          };
+        }
+      }
       this.shops.set(shop.id, shop);
       this.products.set(shop.id, []);
       this.channels.set(shop.id, []);
@@ -457,6 +497,111 @@ export class MultiTenantDB {
     if (found) return found;
     // Default fallback to initial shop if page ID not specifically configured
     return { shop: INITIAL_SHOP, channel: INITIAL_CHANNELS[0] };
+  }
+
+  // ============================================================================
+  // SUBSCRIPTION & SAAS PROVIDER METRICS OPERATIONS
+  // ============================================================================
+
+  async checkTenantOrderQuota(shopId: string): Promise<{ canCreateOrder: boolean; remainingOrders: number; plan: SubscriptionPlan }> {
+    const shop = this.shops.get(shopId);
+    const plan: SubscriptionPlan = shop?.subscription?.plan || 'starter';
+    const limit = shop?.subscription?.monthlyOrderLimit || (plan === 'starter' ? 100 : plan === 'pro' ? 1000 : 10000);
+    const orders = this.orders.get(shopId) || [];
+    const used = orders.length;
+    const remainingOrders = Math.max(0, limit - used);
+    return {
+      canCreateOrder: remainingOrders > 0,
+      remainingOrders,
+      plan,
+    };
+  }
+
+  async updateShopSubscription(shopId: string, plan: SubscriptionPlan): Promise<Shop | null> {
+    const shop = this.shops.get(shopId);
+    if (!shop) return null;
+
+    const limits: Record<SubscriptionPlan, { orderLimit: number; priceMmk: number; tokenLimit: number }> = {
+      starter: { orderLimit: 100, priceMmk: 0, tokenLimit: 20000 },
+      pro: { orderLimit: 1000, priceMmk: 25000, tokenLimit: 100000 },
+      business: { orderLimit: 10000, priceMmk: 60000, tokenLimit: 500000 },
+    };
+
+    const cfg = limits[plan];
+    const updated: Shop = {
+      ...shop,
+      subscription: {
+        plan,
+        status: 'active',
+        monthlyOrderLimit: cfg.orderLimit,
+        currentMonthOrders: (this.orders.get(shopId) || []).length,
+        monthlyAiTokensUsed: shop.subscription?.monthlyAiTokensUsed || 0,
+        monthlyAiTokenLimit: cfg.tokenLimit,
+        priceMmk: cfg.priceMmk,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    this.shops.set(shopId, updated);
+    this.persistData();
+    return updated;
+  }
+
+  async getProviderMetrics(): Promise<ProviderMetrics> {
+    const allShops = Array.from(this.shops.values());
+    let totalOrders = 0;
+    for (const ordList of this.orders.values()) {
+      totalOrders += ordList.length;
+    }
+    let activeChannels = 0;
+    for (const chList of this.channels.values()) {
+      activeChannels += chList.filter((c) => c.isActive !== false).length;
+    }
+
+    let starterCount = 0;
+    let proCount = 0;
+    let businessCount = 0;
+    let monthlyRecurringRevenueMmk = 0;
+
+    for (const s of allShops) {
+      const plan = s.subscription?.plan || 'starter';
+      if (plan === 'starter') starterCount++;
+      else if (plan === 'pro') {
+        proCount++;
+        monthlyRecurringRevenueMmk += 25000;
+      } else if (plan === 'business') {
+        businessCount++;
+        monthlyRecurringRevenueMmk += 60000;
+      }
+    }
+
+    const mmkToUsdRate = 4000;
+    const monthlyRecurringRevenueUsd = Math.round((monthlyRecurringRevenueMmk / mmkToUsdRate) * 100) / 100;
+
+    // SaaS Provider Unit Economics:
+    // With Zero-Chat Storage Invariant and Tier 0 Local NLP handling 90% of traffic,
+    // blended COGS per tenant is < $0.08 / month (DB rows + serverless ticks + token headroom).
+    const perShopVariableCogs = 0.08;
+    const estimatedMonthlyCogsUsd = Math.round(allShops.length * perShopVariableCogs * 100) / 100;
+
+    const grossMarginPercent =
+      monthlyRecurringRevenueUsd > 0
+        ? Math.max(0, Math.min(99, Math.round(((monthlyRecurringRevenueUsd - estimatedMonthlyCogsUsd) / monthlyRecurringRevenueUsd) * 100)))
+        : 92;
+
+    return {
+      totalShops: allShops.length,
+      activeChannels,
+      totalOrders,
+      monthlyRecurringRevenueMmk,
+      monthlyRecurringRevenueUsd,
+      estimatedMonthlyCogsUsd,
+      grossMarginPercent,
+      starterCount,
+      proCount,
+      businessCount,
+    };
   }
 
   // ============================================================================

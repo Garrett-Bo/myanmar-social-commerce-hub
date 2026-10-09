@@ -1,0 +1,99 @@
+--- a/src/lib/myanmar-townships.ts
++++ b/src/lib/myanmar-townships.ts
+@@ -637,7 +637,16 @@ const TOWNSHIP_ALIASES: Record<string, string[]> = {
+   // Naypyitaw
+-  Zabuthiri: ['Zabu Thiri', 'ဇမ္ဗူသီရိ', 'ဇမၺဴသီရိ', 'ဇမ္ဗူသီရိမြို့နယ်', 'နေပြည်တော် ဇမ္ဗူသီရိ'],
++  Zabuthiri: [
++    'Zabu Thiri',
++    'ဇမ္ဗူသီရိ',
++    'ဇမၺဴသီရိ',
++    'ဇမ္ဗူသီရိမြို့နယ်',
++    'နေပြည်တော် ဇမ္ဗူသီရိ',
++    'နေပြည်တော်',
++    'နေပြည်တော်မြို့',
++    'naypyitaw',
++  ],
+   Ottarathiri: ['Ottara Thiri', 'ဥတ္တရသီရိ', 'ဥတၱရသီရိ', 'ဥတ္တရသီရိမြို့နယ်', 'နေပြည်တော် ဥတ္တရသီရိ'],
+ 
+@@ -746,14 +755,47 @@ export function lookupTownshipDelivery(query: string): TownshipDeliveryInfo | nu
+   // Tier 2: Strip common prefixes and suffixes
+-  const stripped = queryLower
+-    .replace(/^(မန္တလေး|နေပြည်တော်|ရန်ကုန်|yangon|mandalay|naypyitaw)\s*/gi, '')
++  // First, strip common suffixes (e.g. "စမ်းချောင်းမြို့နယ်", "မော်လမြိုင်မြို့", "နေပြည်တော်မြို့")
++  const suffixStripped = queryLower
+     .replace(/\s*(မြို့နယ်|မြို့|township|tsp|city|ကားဂိတ်|ဂိတ်|bus gate|gate)$/gi, '')
+     .trim();
+ 
+-  if (stripped && stripped !== queryLower) {
++  if (suffixStripped && suffixStripped !== queryLower) {
+     for (const entry of SEARCH_INDEX) {
+-      if (stripped === entry.pattern) {
++      if (suffixStripped === entry.pattern) {
+         return enrichDeliveryInfo(entry.item);
+       }
+     }
+   }
+ 
++  // Next, strip metro prefixes (e.g. "Yangon Sanchaung", "ရန်ကုန် စမ်းချောင်း")
++  const targetForPrefix = suffixStripped || queryLower;
++  const prefixStripped = targetForPrefix
++    .replace(/^(မန္တလေး|နေပြည်တော်|ရန်ကုန်|yangon|mandalay|naypyitaw)\s*/gi, '')
++    .trim();
++
++  if (prefixStripped) {
++    if (prefixStripped !== queryLower) {
++      for (const entry of SEARCH_INDEX) {
++        if (prefixStripped === entry.pattern) {
++          return enrichDeliveryInfo(entry.item);
++        }
++      }
++    }
++  } else {
++    // Prefix stripping collapsed the query to "" (i.e. query was purely a metro name like "Yangon", "မန္တလေး", "နေပြည်တော်")
++    // If it's a known metro that maps to a township (e.g. Naypyitaw -> Zabuthiri), try matching the metro token itself.
++    // Otherwise, it's a generic metro query (Yangon/Mandalay) without a township, so return null immediately
++    // rather than falling through to Tier 3 substring search.
++    const metroToken = queryLower.match(/^(မန္တလေး|နေပြည်တော်|ရန်ကုန်|yangon|mandalay|naypyitaw)/i)?.[0];
++    if (metroToken) {
++      for (const entry of SEARCH_INDEX) {
++        if (metroToken === entry.pattern) {
++          return enrichDeliveryInfo(entry.item);
++        }
++      }
++      return null;
++    }
++  }
++
+   // Tier 3: Substring pattern matching (longest pattern first)
+@@ -786,13 +828,21 @@ export function isRegionalPrepaidOnly(query: string): boolean {
+-  // Fallback heuristic: check for explicit highway bus gate or regional cargo indicators
+   const normalized = query.trim().toLowerCase();
++
++  // Highway bus gate or regional cargo indicators ALWAYS require prepaid
+   const regionalIndicators = [
+     'ကားဂိတ်',
+     'အဝေးပြေး',
+     'ဂိတ်ချ',
+     'တန်ဆာခ',
+     'နယ်ဝေး',
+     'နယ်စုံ',
+     'highway',
+     'express gate',
+     'bus gate',
+     'bus terminal',
+     'prepaid only',
+   ];
+ 
+-  return regionalIndicators.some((k) => normalized.includes(k));
++  if (regionalIndicators.some((k) => normalized.includes(k))) {
++    return true;
++  }
++
++  // Pure metro region indicators (Yangon, Mandalay, Naypyitaw) support COD -> return false
++  const metroIndicators = ['yangon', 'mandalay', 'naypyitaw', 'ရန်ကုန်', 'မန္တလေး', 'နေပြည်တော်'];
++  if (metroIndicators.some((k) => normalized.includes(k))) {
++    return false;
++  }
++
++  return false;
+ }

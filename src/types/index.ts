@@ -8,6 +8,33 @@ export type PaymentMethod = 'kpay' | 'wavepay' | 'cod' | 'cbpay' | 'ayapay';
 
 export type OrderStatus = 'pending_slip' | 'pending_approval' | 'confirmed' | 'shipped' | 'cancelled';
 
+export type SubscriptionPlan = 'starter' | 'pro' | 'business';
+export type SubscriptionStatus = 'active' | 'past_due' | 'trial';
+
+export interface ShopSubscription {
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  monthlyOrderLimit: number;
+  currentMonthOrders: number;
+  monthlyAiTokensUsed: number;
+  monthlyAiTokenLimit: number;
+  priceMmk: number;
+  expiresAt: string;
+}
+
+export interface ProviderMetrics {
+  totalShops: number;
+  activeChannels: number;
+  totalOrders: number;
+  monthlyRecurringRevenueMmk: number;
+  monthlyRecurringRevenueUsd: number;
+  estimatedMonthlyCogsUsd: number;
+  grossMarginPercent: number;
+  starterCount: number;
+  proCount: number;
+  businessCount: number;
+}
+
 export interface Shop {
   id: string;
   name: string;
@@ -19,18 +46,25 @@ export interface Shop {
   kpayName?: string;
   waveNumber?: string;
   waveName?: string;
+  geminiApiKey?: string;
+  subscription?: ShopSubscription;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ChannelConnection {
   id: string;
   shopId: string;
   platform: PlatformType;
-  accountName: string;
+  accountName?: string;
+  pageName?: string;
   pageId: string;
   accessToken: string;
   webhookSecret?: string;
-  isActive: boolean;
+  isActive?: boolean;
+  isConnected?: boolean;
   avatarUrl?: string;
+  updatedAt?: string;
 }
 
 export interface Product {
@@ -42,9 +76,12 @@ export interface Product {
   category: string;
   priceMmk: number;
   stockQuantity: number;
-  imageUrl: string;
+  imageUrl?: string;
   isAvailable: boolean;
+  description?: string;
   variants?: string[]; // e.g. ['Red - M', 'Black - L']
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface OrderItem {

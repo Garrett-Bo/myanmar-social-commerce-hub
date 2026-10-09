@@ -65,18 +65,18 @@ export default function SettingsPage() {
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-slate-900 flex items-center space-x-2">
-              <Settings className="w-6 h-6 text-indigo-600" />
-              <span>Channels, AI Agent & Payment Settings</span>
+              <Settings className="w-6 h-6 text-amber-600" />
+              <span className="burmese-heading">ဆက်တင်များ (Channels, AI & Payment Settings)</span>
             </h1>
-            <p className="text-xs text-slate-500 mt-1">
-              Configure your Facebook Pages, TikTok Shop, Telegram Alerts, and Myanmar KPay details.
+            <p className="text-xs text-slate-500 mt-1 burmese-text">
+              Facebook Pages, TikTok Shop, Telegram Alerts နှင့် KPay / WavePay ငွေလွှဲအကောင့်များ ပြင်ဆင်ရန်
             </p>
           </div>
 
           {savedSuccess && (
-            <div className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-xl">
+            <div className="flex items-center space-x-1.5 px-3 py-1.5 badge-jade text-xs font-bold rounded-xl animate-fade-in">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Saved Successfully!</span>
+              <span className="burmese-text">သိမ်းဆည်းပြီးပါပြီ! (Saved)</span>
             </div>
           )}
         </div>
@@ -85,9 +85,10 @@ export default function SettingsPage() {
           {/* 1. Connected Channels (Facebook & TikTok) */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <h2 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
-              <Link2 className="w-4 h-4 text-indigo-600" />
-              <span>Connected Multi-Channel Inboxes</span>
+              <Link2 className="w-4 h-4 text-amber-600" />
+              <span className="burmese-heading">ချိတ်ဆက်ထားသော ချန်နယ်များ (Connected Channels)</span>
             </h2>
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               {/* Facebook Card */}
@@ -268,12 +269,13 @@ export default function SettingsPage() {
           <div className="flex justify-end">
             <button
               type="submit"
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex items-center space-x-2 shadow-md shadow-indigo-100 transition-colors"
+              className="px-6 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white rounded-xl font-bold flex items-center space-x-2 shadow-md shadow-amber-200/50 transition-all"
             >
               <Save className="w-4 h-4" />
-              <span>Save All Settings</span>
+              <span className="burmese-heading">ဆက်တင်များ သိမ်းဆည်းမည် (Save Settings)</span>
             </button>
           </div>
+
         </form>
       </div>
     </div>

@@ -15,16 +15,19 @@ const ZAWGYI_DEFINITIVE_PATTERNS: RegExp[] = [
   /[\u107e-\u1084][\u1000-\u1021]/g,               // Zawgyi Ya-yit before consonant
   /\u1031?[\u107e-\u1084][\u1000-\u1021]/g,        // E-vowel + Ya-yit before consonant
   /[\u1060-\u107c]/g,                               // Zawgyi subjoined consonant glyphs & Kinzi (\u1064)
-  /[\u1085\u108a\u108b\u108c\u108d\u108e\u108f]/g, // Zawgyi private medials / Great Sa
+  /[\u1085\u1086\u108a\u108b\u108c\u108d\u108e\u108f]/g, // Zawgyi private medials / Great Sa (\u1086, \u108f)
   /\u1038\u1037/g,                                  // Inverted Visarga before Dot Below (Zawgyi order)
   /\u1033|\u1034/g,                                 // Zawgyi U/UU vowel glyphs
   /\u1031\u1005\u103a/g,                            // Zawgyi 'ေစ်' spelling for 'ဈ'
 ];
 
+// Strictly valid Pali/Burmese subjoined consonant clusters (Vagga and homorganic rules)
+const VALID_PALI_STACK_REGEX = /(?:\u1000\u1039[\u1000\u1001]|\u1002\u1039[\u1002\u1003]|[\u1005\u1007]\u1039[\u1005-\u1008]|[\u1009\u100a]\u1039[\u1005-\u100a]|\u100b\u1039[\u100b\u100c]|\u100d\u1039[\u100d\u100e]|\u100f\u1039[\u100b-\u100f]|\u1010\u1039[\u1010\u1011]|[\u1012\u1013]\u1039[\u1012\u1013]|\u1014\u1039[\u1010-\u1014]|\u1015\u1039[\u1015\u1016]|\u1017\u1039[\u1017\u1018]|\u1019\u1039[\u1015-\u1019]|\u101c\u1039\u101c|\u101e\u1039\u101e|\u101f\u1039[\u1014\u1019\u101c\u1020]|\u1020\u1039\u1020)/g;
+
 // High-confidence Unicode syntactic markers
 const UNICODE_DEFINITIVE_PATTERNS: RegExp[] = [
   /\u1004\u103a\u1039[\u1000-\u1021]/g,            // Kinzi (Nga + Asat + Virama + Consonant)
-  /(?:[\u1000-\u1003\u1005-\u1008\u100a-\u1019\u101c\u101e\u101f]\u1039[\u1000-\u1003\u1005-\u1008\u100a-\u1019\u101c\u101e\u101f])/g, // Standard subjoined stacked consonant
+  VALID_PALI_STACK_REGEX,                           // Standard subjoined stacked consonant (strictly valid Pali/Burmese clusters)
   /[\u1000-\u1021][\u103b\u103c\u103d\u103e]*\u1031/g, // Consonant + optional medials + E-vowel
   /[\u1000-\u1021]\u103c/g,                         // Consonant + Unicode Ya-yit (\u103c)
   /\u103f/g,                                        // Standard Unicode Great Sa (ဿ)
@@ -50,6 +53,15 @@ export function isZawgyi(text: string): boolean {
     if (matches) {
       zawgyiScore += matches.length * 10;
     }
+  }
+
+  // Zawgyi Asat (\u1039) not forming valid Unicode Kinzi or valid Pali stacked consonant
+  const allViramas = (text.match(/\u1039/g) || []).length;
+  const kinziCount = (text.match(/\u1004\u103a\u1039[\u1000-\u1021]/g) || []).length;
+  const paliCount = (text.match(VALID_PALI_STACK_REGEX) || []).length;
+  const orphanViramas = Math.max(0, allViramas - kinziCount - paliCount);
+  if (orphanViramas > 0) {
+    zawgyiScore += orphanViramas * 10;
   }
 
   let unicodeScore = 0;
@@ -141,6 +153,9 @@ export function canonicalizeUnicodeDiacritics(text: string): string {
   // 1. Canonical order: Dot Below (\u1037) MUST precede Visarga (\u1038)
   normalized = normalized.replace(/\u1038\u1037/g, '\u1037\u1038');
 
+  // Canonical order: Medials must precede Vowel E (\u1031)
+  normalized = normalized.replace(/\u1031([\u103b\u103c\u103d\u103e]+)/g, '$1\u1031');
+
   // 2. Canonical order: Vowels before tone marks
   normalized = normalized
     .replace(/\u1037\u1032/g, '\u1032\u1037') // Ai before Dot Below
@@ -199,19 +214,22 @@ export function normalizeBurmese(input: string): string {
     text = text
       .replace(/ေစ်း/g, 'ဈေး')
       .replace(/စမ္းေခ်ာင္း/g, 'စမ်းချောင်း')
+      .replace(/ခ်မ္းေအးသာစံ/g, 'ချမ်းအေးသာစံ')
+      .replace(/ခ်မ္း/g, 'ချမ်း')
+      .replace(/ခ်မ်း/g, 'ချမ်း')
       .replace(/ပစၥည္း/g, 'ပစ္စည်း')
       .replace(/ရွိလား/g, 'ရှိလား')
       .replace(/မဂၤလာပါ/g, 'မင်္ဂလာပါ');
 
-    // 2. Kinzi replacement
-    text = text.replace(/\u1064([\u1000-\u1021])/g, '\u1004\u103a\u1039$1');
+    // 2. Kinzi replacement: consonant (with optional upper vowel) followed by \u1064
+    text = text.replace(/([\u1000-\u1021])([\u102d\u102e\u1036]?)\u1064/g, '\u1004\u103a\u1039$1$2');
 
     // 3. Subjoined stacked consonants mapping
     text = text.replace(/[\u1060-\u1063\u1065-\u107c]/g, (char) => ZAWGYI_SUBJOINED_MAP[char] || char);
 
     // 4. Great Sa and medials
     text = text
-      .replace(/\u108f/g, '\u103f')          // Great Sa
+      .replace(/[\u1086\u108f]/g, '\u103f')          // Great Sa (\u1086 and \u108f)
       .replace(/\u108a/g, '\u103d\u103e')      // Wa-swae + Ha-hto
       .replace(/\u108b/g, '\u103c\u103e')      // Ya-yit + Ha-hto
       .replace(/\u108c/g, '\u103b\u103d')      // Ya-pin + Wa-swae
@@ -222,19 +240,22 @@ export function normalizeBurmese(input: string): string {
       .replace(/\u1033/g, '\u102f')          // U-vowel
       .replace(/\u1034/g, '\u1030');         // UU-vowel
 
-    // 5. Reorder Zawgyi Ya-yit before consonant
-    text = text.replace(/([\u107e-\u1084\u103b])([\u1000-\u1021])/g, '$2\u103c');
+    // 5. Reorder Zawgyi Ya-yit before consonant (\u107e-\u1084 are Zawgyi pre-consonant Ya-yit glyphs)
+    text = text.replace(/([\u107e-\u1084])([\u1000-\u1021])/g, '$2\u103c');
 
-    // 6. Reorder Zawgyi pre-base E-vowel
-    text = text.replace(/(\u1031)([\u1000-\u1021])((?:\u1039[\u1000-\u1021])*)/g, '$2$3$1');
+    // 6. Reorder Zawgyi pre-base E-vowel (ordering medials before E-vowel)
+    text = text.replace(/(\u1031)([\u1000-\u1021])((?:\u1039[\u1000-\u1021]|[\u103b\u103c\u103d\u103e])*)/g, '$2$3$1');
 
-    // 7. Convert Zawgyi Asat \u1039 to Unicode Asat \u103a (any remaining \u1039 that is not forming a subjoined consonant)
-    text = text.replace(/\u1039(?![\u1000-\u1021])/g, '\u103a');
-    text = text.replace(/\u1004\u1039([^\u1000-\u1021]|$)/g, '\u1004\u103a$1');
-    text = text.replace(/\u1000\u1039(?![\u1000\u1001])/g, '\u1000\u103a');
-    text = text.replace(/\u100a\u1039(?![\u1005-\u1008])/g, '\u100a\u103a');
-    text = text.replace(/\u101a\u1039/g, '\u101a\u103a');
+    // 7. Convert Zawgyi Asat \u1039 to Unicode Asat \u103a
+    // Protect valid Unicode Kinzi (\u1004\u103a\u1039) and valid Pali stacked consonants
+    text = text.replace(/(\u1004\u103a)\u1039/g, '$1\uE000');
+    text = text.replace(VALID_PALI_STACK_REGEX, (m) => m.replace('\u1039', '\uE000'));
+    text = text.replace(/\u1039/g, '\u103a');
+    text = text.replace(/\uE000/g, '\u1039');
   }
+
+  // Residual Zawgyi Kha+Asat combinations used as Ya-pin
+  text = text.replace(/ခ်မ်း/g, 'ချမ်း');
 
   // Canonicalize Unicode diacritic ordering and deduplication
   return canonicalizeUnicodeDiacritics(text);
@@ -292,3 +313,12 @@ export function normalizeMyanmarPhone(phone: string): string {
   // If already starts with 09 and valid digits, return it; otherwise empty string
   return '';
 }
+
+/**
+ * Converts ASCII numbers to Myanmar Unicode numerals (၀-၉)
+ */
+export function toBurmeseNumerals(val: number | string): string {
+  const mmDigits = ['၀', '၁', '၂', '၃', '၄', '၅', '၆', '၇', '၈', '၉'];
+  return String(val).replace(/[0-9]/g, (d) => mmDigits[parseInt(d, 10)]);
+}
+

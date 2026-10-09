@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "npx tsx scripts/verify_m1_persistence.ts && npx tsx scripts/verify_m2_nlp_logistics.ts && npx tsx scripts/verify_m3_channels.ts && npx tsx scripts/verify_m4_sales_closing.ts && npx tsx scripts/adversarial_zero_chat_probe.ts && npx tsx tests/challenge_m2_townships.ts && npx tsx tests/challenge_m3_adversarial.ts && npx tsx tests/adversarial_m4_reviewer_probe.ts && npx tsx tests/tier4_real_workloads.ts && npx tsx tests/tier5_provider_quotas.ts"
   },
   "dependencies": {
     "@google/genai": "latest",

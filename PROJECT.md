@@ -64,16 +64,20 @@
 | 34 | Tier 4 Test Suite: E2E Workflows | Validates complete order checkout and zero-chat DB invariant. | E2E Track | ORIGINAL_REQUEST R4 |
 | 35 | 100% E2E Test Suite Execution | Executes full test suite passing cleanly (`npm.cmd test`). | M5 | ORIGINAL_REQUEST AC |
 | 36 | Tier 5 Adversarial Coverage Hardening | White-box edge-case tests, stress tests, forensic audit clean. | M5 | Dual-Track Phase 2 |
+| 37 | Multi-Tenant Subscription Plans & Quotas | 3 plans (Starter: Free, Pro: 25k MMK, Business: 60k MMK) & quota tracking. | M6 | Strategic PM |
+| 38 | 3-Tier Zero-Marginal-Cost AI Router | Local NLP ($0.00) + token-budgeted LLM + Merchant BYOK. | M6 | Strategic PM |
+| 39 | SaaS Provider Executive Console (`/provider`) | Live MRR, COGS telemetry, scale economics simulator, and tenant management. | M6 | Strategic PM |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
 | M1 | Multi-Tenant Database Persistence & Zero-Chat Storage | PostgreSQL Supabase schema with RLS, disk persistence fallback in `db.ts`, zero-chat models, updated types. | none | DONE |
-| M2 | Burmese NLP, Digit Normalization & Logistics Matrix | Zawgyi/Unicode converter, Burmese/Thai digit normalization, phone correction, 58 townships/bus gates delivery lookup. | none | IN_PROGRESS |
-| M3 | Social Channels & On-Demand Messaging | Facebook & TikTok webhooks, outbound Graph API/TikTok dispatch, on-demand chat fetchers, strict multi-tenant routing. | M1 | PLANNED |
-| M4 | AI Sales Closing Engine & Checkout Collection | Intent classifier, Burglish slang, MMK price/stock check, 5-attribute checkout collection, order voucher, stock decrement. | M1, M2, M3 | PLANNED |
-| E2E | E2E Testing Track (Dual Track) | Vitest test runner configuration (`npm.cmd test`), Tiers 1-4 test suites, mock simulators, `TEST_READY.md`. | none | PLANNED |
-| M5 | Final Milestone: E2E Verification & Hardening | Phase 1: 100% pass of E2E test suite (Tiers 1-4). Phase 2: Tier 5 adversarial coverage hardening & forensic integrity audit. | M1, M2, M3, M4, E2E | PLANNED |
+| M2 | Burmese NLP, Digit Normalization & Logistics Matrix | Zawgyi/Unicode converter, Burmese/Thai digit normalization, phone correction, 58 townships/bus gates delivery lookup. | none | DONE |
+| M3 | Social Channels & On-Demand Messaging | Facebook & TikTok webhooks, outbound Graph API/TikTok dispatch, on-demand chat fetchers, strict multi-tenant routing. | M1 | DONE |
+| M4 | AI Sales Closing Engine & Checkout Collection | Intent classifier, Burglish slang, MMK price/stock check, 5-attribute checkout collection, order voucher, stock decrement. | M1, M2, M3 | DONE |
+| E2E | E2E Testing Track (Dual Track) | Comprehensive test runner (`npm.cmd test`), Tiers 1-4 real customer journeys, mock simulators, `TEST_INFRA.md`. | none | DONE |
+| M5 | Final Milestone: E2E Verification & Hardening | Phase 1: 100% pass of E2E test suite (Tiers 1-4). Phase 2: Tier 5 adversarial coverage hardening & forensic integrity audit. | M1, M2, M3, M4, E2E | DONE |
+| M6 | Low-Cost SaaS Provider Strategy & Governance | 3-tier zero-cost AI router, tenant quota engine, `/provider` executive console, and Myanmar merchant functional blueprint. | M1, M2, M3, M4, M5 | DONE |
 
 ## Interface Contracts
 
